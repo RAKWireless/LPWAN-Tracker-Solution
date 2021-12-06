@@ -103,6 +103,25 @@ bool init_app(void)
 	// Initialize GNSS module
 	init_result = init_gnss();
 
+
+	// If P2P mode GNSS task needs to be started here
+	if (!g_lorawan_settings.lorawan_enable)
+	{
+		// Prepare GNSS task
+		// Create the GNSS event semaphore
+		g_gnss_sem = xSemaphoreCreateBinary();
+		// Initialize semaphore
+		xSemaphoreGive(g_gnss_sem);
+		// Take semaphore
+		xSemaphoreTake(g_gnss_sem, 10);
+		if (!xTaskCreate(gnss_task, "LORA", 4096, NULL, TASK_PRIO_LOW, &gnss_task_handle))
+		{
+			MYLOG("APP", "Failed to start GNSS task");
+		}
+		last_pos_send = millis();
+		g_lpwan_has_joined=true;
+	}
+
 	// Initialize ACC sensor
 	init_result |= init_acc();
 
@@ -119,6 +138,7 @@ bool init_app(void)
 		// Send repeat time is 0, set delay to 30 seconds
 		min_delay = 30000;
 	}
+	
 	// Set to 1/2 of programmed send interval or 30 seconds
 	delayed_sending.begin(min_delay, send_delayed, NULL, false);
 
@@ -427,6 +447,7 @@ void lora_data_handler(void)
 			{
 				MYLOG("APP", "Failed to start GNSS task");
 			}
+			last_pos_send = millis();
 		}
 		else
 		{
@@ -455,7 +476,7 @@ void lora_data_handler(void)
 			}
 		}
 
-		if (g_lorawan_settings.confirmed_msg_enabled)
+		if ((g_lorawan_settings.confirmed_msg_enabled) && (g_lorawan_settings.lorawan_enable))
 		{
 			AT_PRINTF("+EVT:SEND CONFIRMED %s\n", g_rx_fin_result ? "SUCCESS" : "FAIL");
 		}
@@ -494,7 +515,7 @@ void lora_data_handler(void)
 
 		if (g_lorawan_settings.lorawan_enable)
 		{
-			AT_PRINTF("+EVT:RX_1, RSSI %d, SNR %d\n+EVT:UNICAST\n", g_last_rssi, g_last_snr);
+			AT_PRINTF("+EVT:RX_1, RSSI %d, SNR %d\n", g_last_rssi, g_last_snr);
 			AT_PRINTF("+EVT:%d:", g_last_fport);
 			for (int idx = 0; idx < g_rx_data_len; idx++)
 			{
@@ -505,7 +526,7 @@ void lora_data_handler(void)
 		else
 		{
 			AT_PRINTF("+EVT:RXP2P, RSSI %d, SNR %d\n", g_last_rssi, g_last_snr);
-			AT_PRINTF("+EVT:", g_last_fport);
+			AT_PRINTF("+EVT:");
 			for (int idx = 0; idx < g_rx_data_len; idx++)
 			{
 				AT_PRINTF("%02X", g_rx_lora_data[idx]);
@@ -527,7 +548,7 @@ void lora_data_handler(void)
 		{
 			if (g_lorawan_settings.lorawan_enable)
 			{
-				g_ble_uart.printf("+EVT:RX_1, RSSI %d, SNR %d\n+EVT:UNICAST\n", g_last_rssi, g_last_snr);
+				g_ble_uart.printf("+EVT:RX_1, RSSI %d, SNR %d\n", g_last_rssi, g_last_snr);
 				g_ble_uart.printf("+EVT:%d:", g_last_fport);
 				for (int idx = 0; idx < g_rx_data_len; idx++)
 				{
