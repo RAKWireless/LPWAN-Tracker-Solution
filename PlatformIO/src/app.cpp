@@ -103,7 +103,6 @@ bool init_app(void)
 	// Initialize GNSS module
 	init_result = init_gnss();
 
-
 	// If P2P mode GNSS task needs to be started here
 	if (!g_lorawan_settings.lorawan_enable)
 	{
@@ -119,7 +118,7 @@ bool init_app(void)
 			MYLOG("APP", "Failed to start GNSS task");
 		}
 		last_pos_send = millis();
-		g_lpwan_has_joined=true;
+		g_lpwan_has_joined = true;
 	}
 
 	// Initialize ACC sensor
@@ -138,8 +137,8 @@ bool init_app(void)
 		// Send repeat time is 0, set delay to 30 seconds
 		min_delay = 30000;
 	}
-	
-	// Set to 1/2 of programmed send interval or 30 seconds
+
+	// Set delayed sending to 1/2 of programmed send interval or 30 seconds
 	delayed_sending.begin(min_delay, send_delayed, NULL, false);
 
 	return init_result;
@@ -200,7 +199,8 @@ void app_event_handler(void)
 		{
 			if (g_lorawan_settings.lorawan_enable)
 			{
-				lmh_error_status result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
+				// Send only the battery level
+				lmh_error_status result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 4);
 				switch (result)
 				{
 				case LMH_SUCCESS:
@@ -212,6 +212,7 @@ void app_event_handler(void)
 					}
 					break;
 				case LMH_BUSY:
+					AT_PRINTF("+EVT:BUSY\n");
 					MYLOG("APP", "LoRa transceiver is busy");
 					lora_busy = true;
 					if (g_ble_uart_is_connected)
@@ -220,6 +221,7 @@ void app_event_handler(void)
 					}
 					break;
 				case LMH_ERROR:
+					AT_PRINTF("+EVT:SIZE_ERROR\n");
 					MYLOG("APP", "Packet error, too big to send with current DR");
 					if (g_ble_uart_is_connected)
 					{
@@ -357,7 +359,7 @@ void app_event_handler(void)
 				}
 				break;
 			case LMH_BUSY:
-				AT_PRINTF("+EVT:BUSY");
+				AT_PRINTF("+EVT:BUSY\n");
 				MYLOG("APP", "LoRa transceiver is busy");
 				if (g_ble_uart_is_connected)
 				{
@@ -365,7 +367,7 @@ void app_event_handler(void)
 				}
 				break;
 			case LMH_ERROR:
-				AT_PRINTF("+EVT:SIZE_ERROR");
+				AT_PRINTF("+EVT:SIZE_ERROR\n");
 				MYLOG("APP", "Packet error, too big to send with current DR");
 				if (g_ble_uart_is_connected)
 				{

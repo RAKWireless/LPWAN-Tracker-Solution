@@ -91,7 +91,7 @@ struct tracker_data_s
 	uint8_t alt_2 = 0;			// 10
 	uint8_t alt_3 = 0;			// 11
 	uint8_t data_flag3 = 0x02;	// 12 Cayenne LPP channel
-	uint8_t data_flag4 = 0x02;	// 13 Cayenne LPP analog value
+	uint8_t data_flag4 = 0x02;	// 13 Cayenne LPP analog value battery
 	uint8_t batt_1 = 0;			// 14
 	uint8_t batt_2 = 0;			// 15
 	uint8_t data_flag5 = 0x03;	// 16 Cayenne LPP channel
@@ -106,7 +106,7 @@ struct tracker_data_s
 	uint8_t press_1 = 0;		// 25
 	uint8_t press_2 = 0;		// 26
 	uint8_t data_flag11 = 0x06; // 27 Cayenne LPP channel
-	uint8_t data_flag12 = 0x02; // 28 Cayenne LPP analog value
+	uint8_t data_flag12 = 0x02; // 28 Cayenne LPP analog value gas resistence
 	uint8_t gas_1 = 0;			// 29
 	uint8_t gas_2 = 0;			// 30
 };
