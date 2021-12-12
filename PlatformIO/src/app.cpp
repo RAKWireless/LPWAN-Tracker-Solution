@@ -17,7 +17,7 @@
 char g_ble_dev_name[10] = "RAK-GNSS";
 
 /** Flag showing if TX cycle is ongoing */
-bool lora_busy = false;
+volatile bool lora_busy = false;
 
 /** Timer since last position message was sent */
 time_t last_pos_send = 0;
@@ -206,27 +206,14 @@ void app_event_handler(void)
 				case LMH_SUCCESS:
 					MYLOG("APP", "Packet enqueued");
 					lora_busy = true;
-					if (g_ble_uart_is_connected)
-					{
-						g_ble_uart.println("Packet enqueued");
-					}
 					break;
 				case LMH_BUSY:
 					AT_PRINTF("+EVT:BUSY\n");
 					MYLOG("APP", "LoRa transceiver is busy");
-					lora_busy = true;
-					if (g_ble_uart_is_connected)
-					{
-						g_ble_uart.println("LoRa transceiver is busy");
-					}
 					break;
 				case LMH_ERROR:
 					AT_PRINTF("+EVT:SIZE_ERROR\n");
 					MYLOG("APP", "Packet error, too big to send with current DR");
-					if (g_ble_uart_is_connected)
-					{
-						g_ble_uart.println("Packet error, too big to send with current DR");
-					}
 					break;
 				}
 			}
@@ -235,18 +222,10 @@ void app_event_handler(void)
 				if (send_p2p_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN))
 				{
 					MYLOG("APP", "Packet enqueued");
-					if (g_ble_uart_is_connected)
-					{
-						g_ble_uart.println("Packet enqueued");
-					}
 				}
 				else
 				{
 					MYLOG("APP", "Packet enqueued");
-					if (g_ble_uart_is_connected)
-					{
-						g_ble_uart.println("Packet too big");
-					}
 				}
 			}
 		}
@@ -257,10 +236,6 @@ void app_event_handler(void)
 	{
 		g_task_event_type &= N_ACC_TRIGGER;
 		MYLOG("APP", "ACC triggered");
-		if (g_ble_uart_is_connected)
-		{
-			g_ble_uart.println("ACC triggered");
-		}
 		clear_acc_int();
 
 		// Check time since last send
@@ -275,23 +250,10 @@ void app_event_handler(void)
 					delayed_sending.stop();
 					MYLOG("APP", "Expired time %d", (int)(millis() - last_pos_send));
 					MYLOG("APP", "Max delay time %d", (int)min_delay);
-					if (g_ble_uart_is_connected)
-					{
-						g_ble_uart.printf("Expired time %d\n", (millis() - last_pos_send));
-						g_ble_uart.printf("Max delay time %d\n", min_delay);
-					}
 					time_t wait_time = abs(min_delay - (millis() - last_pos_send) >= 0) ? (min_delay - (millis() - last_pos_send)) : min_delay;
 					MYLOG("APP", "Wait time %ld", (long)wait_time);
-					if (g_ble_uart_is_connected)
-					{
-						g_ble_uart.printf("Wait time %d\n", wait_time);
-					}
 
 					MYLOG("APP", "Only %lds since last position message, send delayed in %lds", (long)((millis() - last_pos_send) / 1000), (long)(wait_time / 1000));
-					if (g_ble_uart_is_connected)
-					{
-						g_ble_uart.printf("Only %ds since last pos msg, delay by %ds\n", ((millis() - last_pos_send) / 1000), (wait_time / 1000));
-					}
 					delayed_sending.setPeriod(wait_time);
 					delayed_sending.start();
 					delayed_active = true;
@@ -334,14 +296,6 @@ void app_event_handler(void)
 			Serial.printf("%02X", packet[idx]);
 		}
 		Serial.println("");
-		if (g_ble_uart_is_connected)
-		{
-			for (int idx = 0; idx < TRACKER_DATA_LEN; idx++)
-			{
-				g_ble_uart.printf("%02X", packet[idx]);
-			}
-			g_ble_uart.println("");
-		}
 #endif
 
 		if (g_lorawan_settings.lorawan_enable)
@@ -353,26 +307,14 @@ void app_event_handler(void)
 				MYLOG("APP", "Packet enqueued");
 				/// \todo set a flag that TX cycle is running
 				lora_busy = true;
-				if (g_ble_uart_is_connected)
-				{
-					g_ble_uart.println("Packet enqueued");
-				}
 				break;
 			case LMH_BUSY:
 				AT_PRINTF("+EVT:BUSY\n");
 				MYLOG("APP", "LoRa transceiver is busy");
-				if (g_ble_uart_is_connected)
-				{
-					g_ble_uart.println("LoRa transceiver is busy");
-				}
 				break;
 			case LMH_ERROR:
 				AT_PRINTF("+EVT:SIZE_ERROR\n");
 				MYLOG("APP", "Packet error, too big to send with current DR");
-				if (g_ble_uart_is_connected)
-				{
-					g_ble_uart.println("Packet error, too big to send with current DR");
-				}
 				break;
 			}
 		}
@@ -381,18 +323,10 @@ void app_event_handler(void)
 			if (send_p2p_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN))
 			{
 				MYLOG("APP", "Packet enqueued");
-				if (g_ble_uart_is_connected)
-				{
-					g_ble_uart.println("Packet enqueued");
-				}
 			}
 			else
 			{
-				MYLOG("APP", "Packet enqueued");
-				if (g_ble_uart_is_connected)
-				{
-					g_ble_uart.println("Packet too big");
-				}
+				MYLOG("APP", "Packet too big");
 			}
 		}
 	}
@@ -466,17 +400,6 @@ void lora_data_handler(void)
 		g_task_event_type &= N_LORA_TX_FIN;
 
 		MYLOG("APP", "LPWAN TX cycle %s", g_rx_fin_result ? "finished ACK" : "failed NAK");
-		if (g_ble_uart_is_connected)
-		{
-			if (g_lorawan_settings.confirmed_msg_enabled)
-			{
-				g_ble_uart.printf("+EVT:SEND CONFIRMED %s\n", g_rx_fin_result ? "SUCCESS" : "FAIL");
-			}
-			else
-			{
-				g_ble_uart.printf("+EVT:SEND OK\n");
-			}
-		}
 
 		if ((g_lorawan_settings.confirmed_msg_enabled) && (g_lorawan_settings.lorawan_enable))
 		{
@@ -545,30 +468,6 @@ void lora_data_handler(void)
 		}
 		lora_busy = false;
 		MYLOG("APP", "%s", log_buff);
-
-		if (g_ble_uart_is_connected && g_enable_ble)
-		{
-			if (g_lorawan_settings.lorawan_enable)
-			{
-				g_ble_uart.printf("+EVT:RX_1, RSSI %d, SNR %d\n", g_last_rssi, g_last_snr);
-				g_ble_uart.printf("+EVT:%d:", g_last_fport);
-				for (int idx = 0; idx < g_rx_data_len; idx++)
-				{
-					g_ble_uart.printf("%02X", g_rx_lora_data[idx]);
-				}
-				g_ble_uart.println("");
-			}
-			else
-			{
-				g_ble_uart.printf("+EVT:RXP2P, RSSI %d, SNR %d\n", g_last_rssi, g_last_snr);
-				g_ble_uart.printf("+EVT:", g_last_fport);
-				for (int idx = 0; idx < g_rx_data_len; idx++)
-				{
-					g_ble_uart.printf("%02X", g_rx_lora_data[idx]);
-				}
-				g_ble_uart.println("");
-			}
-		}
 	}
 }
 

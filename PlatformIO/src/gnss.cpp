@@ -60,19 +60,11 @@ bool init_gnss(void)
 	if (!my_gnss.begin())
 	{
 		MYLOG("GNSS", "UBLOX did not answer on I2C, retry on Serial1");
-		if (g_ble_uart_is_connected)
-		{
-			g_ble_uart.println("UBLOX did not answer on I2C, retry on Serial1");
-		}
 		i2c_gnss = false;
 	}
 	else
 	{
 		MYLOG("GNSS", "UBLOX found on I2C");
-		if (g_ble_uart_is_connected)
-		{
-			g_ble_uart.println("UBLOX found on I2C");
-		}
 		i2c_gnss = true;
 		gnss_found = true;
 		my_gnss.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
@@ -92,10 +84,6 @@ bool init_gnss(void)
 			{
 				MYLOG("GNSS", "UBLOX found on Serial1 with 38400");
 				my_gnss.setUART1Output(COM_TYPE_UBX); //Set the UART port to output UBX only
-				if (g_ble_uart_is_connected)
-				{
-					g_ble_uart.println("UBLOX found on Serial1 with 38400");
-				}
 				gnss_found = true;
 
 				break;
@@ -139,10 +127,6 @@ bool init_gnss(void)
 bool poll_gnss(void)
 {
 	MYLOG("GNSS", "poll_gnss");
-	if (g_ble_uart_is_connected)
-	{
-		g_ble_uart.println("poll_gnss");
-	}
 
 #if GNSS_OFF == 1
 	// Start connection
@@ -190,12 +174,6 @@ bool poll_gnss(void)
 		else if (fix_type == 5)
 			sprintf(fix_type_str, "Time fix");
 
-		if (g_ble_uart_is_connected)
-		{
-			g_ble_uart.printf("Fixtype: %d %s\n", fix_type, fix_type_str);
-			g_ble_uart.printf("SIV: %d\n", my_gnss.getSIV());
-		}
-
 		// if (my_gnss.getGnssFixOk()) /** Don't care about accuracy */
 		// if ((fix_type >= 3) && (my_gnss.getSIV() >= 5)) /** Fix type 3D and at least 5 satellites */
 		if (fix_type >= 3) /** Fix type 3D */
@@ -213,13 +191,6 @@ bool poll_gnss(void)
 			MYLOG("GNSS", "Alt: %.2f", altitude / 1000.0);
 			MYLOG("GNSS", "Acy: %.2f ", accuracy / 100.0);
 
-			if (g_ble_uart_is_connected)
-			{
-				g_ble_uart.printf("Fixtype: %d %s\n", my_gnss.getFixType(), fix_type_str);
-				g_ble_uart.printf("Lat: %.4f Lon: %.4f\n", latitude / 10000000.0, longitude / 10000000.0);
-				g_ble_uart.printf("Alt: %.2f\n", altitude / 1000.0);
-				g_ble_uart.printf("Acy: %.2f\n", accuracy / 100.0);
-			}
 			pos_union.val32 = latitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
 			g_tracker_data.lat_1 = pos_union.val8[2];
 			g_tracker_data.lat_2 = pos_union.val8[1];
@@ -306,10 +277,6 @@ bool poll_gnss(void)
 	}
 
 	MYLOG("GNSS", "No valid location found");
-	if (g_ble_uart_is_connected)
-	{
-		g_ble_uart.println("\nNo valid location found");
-	}
 	last_read_ok = false;
 
 	// digitalWrite(LED_CONN, LOW);
@@ -329,16 +296,23 @@ void gnss_task(void *pvParameters)
 		if (xSemaphoreTake(g_gnss_sem, portMAX_DELAY) == pdTRUE)
 		{
 			MYLOG("GNSS", "GNSS Task wake up");
-			AT_PRINTF("+EVT:START_LOCATION\n");
-			// Get location
-			bool got_location = poll_gnss();
-			AT_PRINTF("+EVT:LOCATION %s\n", got_location ? "FIX" : "NOFIX");
-
-			// if ((g_task_sem != NULL) && got_location)
-			if (g_task_sem != NULL)
+			if (!lora_busy)
 			{
-				g_task_event_type |= GNSS_FIN;
-				xSemaphoreGiveFromISR(g_task_sem, &g_higher_priority_task_woken);
+				AT_PRINTF("+EVT:START_LOCATION\n");
+				// Get location
+				bool got_location = poll_gnss();
+				AT_PRINTF("+EVT:LOCATION %s\n", got_location ? "FIX" : "NOFIX");
+
+				// if ((g_task_sem != NULL) && got_location)
+				if (g_task_sem != NULL)
+				{
+					g_task_event_type |= GNSS_FIN;
+					xSemaphoreGiveFromISR(g_task_sem, &g_higher_priority_task_woken);
+				}
+			}
+			else
+			{
+				AT_PRINTF("+EVT:LOCATION_SKIP\n");
 			}
 			MYLOG("GNSS", "GNSS Task finished");
 		}

@@ -26,30 +26,36 @@
 #endif
 
 #if MY_DEBUG > 0
-#define MYLOG(tag, ...)           \
-	do                            \
-	{                             \
-		if (tag)                  \
-			PRINTF("[%s] ", tag); \
-		PRINTF(__VA_ARGS__);      \
-		PRINTF("\n");             \
-	} while (0)
+#define MYLOG(tag, ...)                     \
+	do                                      \
+	{                                       \
+		if (tag)                            \
+			PRINTF("[%s] ", tag);           \
+		PRINTF(__VA_ARGS__);                \
+		PRINTF("\n");                       \
+		if (g_ble_uart_is_connected)        \
+		{                                   \
+			g_ble_uart.printf(__VA_ARGS__); \
+			g_ble_uart.printf("\n");        \
+		}                                   \
+	}
+while (0)
 #else
 #define MYLOG(...)
 #endif
 
-/** Application function definitions */
-void setup_app(void);
+	/** Application function definitions */
+	void setup_app(void);
 bool init_app(void);
 void app_event_handler(void);
 void ble_data_handler(void) __attribute__((weak));
 void lora_data_handler(void);
 
 /** Examples for application events */
-#define ACC_TRIGGER   0b1000000000000000
+#define ACC_TRIGGER 0b1000000000000000
 #define N_ACC_TRIGGER 0b0111111111111111
-#define GNSS_FIN      0b0100000000000000
-#define N_GNSS_FIN    0b1011111111111111
+#define GNSS_FIN 0b0100000000000000
+#define N_GNSS_FIN 0b1011111111111111
 
 /** Application stuff */
 extern BaseType_t g_higher_priority_task_woken;
@@ -113,6 +119,7 @@ struct tracker_data_s
 extern tracker_data_s g_tracker_data;
 #define TRACKER_DATA_LEN 30 // sizeof(g_tracker_data)
 extern uint8_t g_last_fport;
+extern volatile bool lora_busy;
 
 /** Battery level uinion */
 union batt_s
