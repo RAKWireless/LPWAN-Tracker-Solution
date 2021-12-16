@@ -300,7 +300,25 @@ void app_event_handler(void)
 
 		if (g_lorawan_settings.lorawan_enable)
 		{
-			lmh_error_status result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
+			// Check payload size
+			if (g_lorawan_settings.lora_region == 8)
+			{
+				if (g_lorawan_settings.data_rate == 0)
+				{
+					AT_PRINTF("+EVT:DR_ERROR\n");
+					return;
+				}
+			}
+
+			lmh_error_status result;
+			if (last_read_ok)
+			{
+				result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
+			}
+			else
+			{
+				result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 19);
+			}
 			switch (result)
 			{
 			case LMH_SUCCESS:
@@ -313,8 +331,38 @@ void app_event_handler(void)
 				MYLOG("APP", "LoRa transceiver is busy");
 				break;
 			case LMH_ERROR:
-				AT_PRINTF("+EVT:SIZE_ERROR\n");
-				MYLOG("APP", "Packet error, too big to send with current DR");
+				if (last_read_ok)
+				{
+					result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
+				}
+				else
+				{
+					result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 19);
+				}
+				switch (result)
+				{
+				case LMH_SUCCESS:
+					MYLOG("APP", "Packet enqueued");
+					/// \todo set a flag that TX cycle is running
+					lora_busy = true;
+					break;
+				case LMH_BUSY:
+					AT_PRINTF("+EVT:BUSY\n");
+					MYLOG("APP", "LoRa transceiver is busy");
+					break;
+				case LMH_ERROR:
+					AT_PRINTF("+EVT:SIZE_ERROR RETRY\n");
+					if (last_read_ok)
+					{
+						result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
+					}
+					else
+					{
+						result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 19);
+					}
+					AT_PRINTF("+EVT:SIZE_ERROR\n");
+					MYLOG("APP", "Packet error, too big to send with current DR");
+				}
 				break;
 			}
 		}
@@ -326,6 +374,7 @@ void app_event_handler(void)
 			}
 			else
 			{
+				AT_PRINTF("+EVT:SIZE_ERROR\n");
 				MYLOG("APP", "Packet too big");
 			}
 		}
@@ -398,6 +447,8 @@ void lora_data_handler(void)
 	if ((g_task_event_type & LORA_TX_FIN) == LORA_TX_FIN)
 	{
 		g_task_event_type &= N_LORA_TX_FIN;
+		/// \todo reset flag that TX cycle is running
+		lora_busy = false;
 
 		MYLOG("APP", "LPWAN TX cycle %s", g_rx_fin_result ? "finished ACK" : "failed NAK");
 
@@ -422,8 +473,6 @@ void lora_data_handler(void)
 				sd_nvic_SystemReset();
 			}
 		}
-		/// \todo reset flag that TX cycle is running
-		lora_busy = false;
 	}
 
 	// LoRa data handling

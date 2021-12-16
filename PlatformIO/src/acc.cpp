@@ -80,6 +80,19 @@ bool init_acc(void)
 	// Enable high pass filter
 	acc_sensor.writeRegister(LIS3DH_CTRL_REG2, 0x01);
 
+	// Set low power mode
+	data_to_write = 0;
+	acc_sensor.readRegister(&data_to_write, LIS3DH_CTRL_REG1);
+	data_to_write |= 0x08;
+	acc_sensor.writeRegister(LIS3DH_CTRL_REG1, data_to_write);
+	delay(100);
+
+	data_to_write = 0;
+	acc_sensor.readRegister(&data_to_write, 0x1E);
+	data_to_write |= 0x90;
+	acc_sensor.writeRegister(0x1E, data_to_write);
+	delay(100);
+
 	clear_acc_int();
 
 	// Set the interrupt callback function

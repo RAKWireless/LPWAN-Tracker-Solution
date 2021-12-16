@@ -38,14 +38,13 @@
 			g_ble_uart.printf(__VA_ARGS__); \
 			g_ble_uart.printf("\n");        \
 		}                                   \
-	}
-while (0)
+	} while (0)
 #else
 #define MYLOG(...)
 #endif
 
-	/** Application function definitions */
-	void setup_app(void);
+/** Application function definitions */
+void setup_app(void);
 bool init_app(void);
 void app_event_handler(void);
 void ble_data_handler(void) __attribute__((weak));
@@ -74,6 +73,7 @@ bool poll_gnss(void);
 void gnss_task(void *pvParameters);
 extern SemaphoreHandle_t g_gnss_sem;
 extern TaskHandle_t gnss_task_handle;
+extern volatile bool last_read_ok;
 
 /** Temperature + Humidity stuff */
 #include <Adafruit_Sensor.h>
@@ -96,25 +96,25 @@ struct tracker_data_s
 	uint8_t alt_1 = 0;			// 9
 	uint8_t alt_2 = 0;			// 10
 	uint8_t alt_3 = 0;			// 11
-	uint8_t data_flag3 = 0x02;	// 12 Cayenne LPP channel
-	uint8_t data_flag4 = 0x02;	// 13 Cayenne LPP analog value battery
-	uint8_t batt_1 = 0;			// 14
-	uint8_t batt_2 = 0;			// 15
-	uint8_t data_flag5 = 0x03;	// 16 Cayenne LPP channel
-	uint8_t data_flag6 = 0x68;	// 17 Cayenne LPP humidity
-	uint8_t humid_1 = 0;		// 18
-	uint8_t data_flag7 = 0x04;	// 19 Cayenne LPP channel
-	uint8_t data_flag8 = 0x67;	// 20 Cayenne LPP temperature
-	uint8_t temp_1 = 0;			// 21
-	uint8_t temp_2 = 0;			// 22
-	uint8_t data_flag9 = 0x05;	// 23 Cayenne LPP channel
-	uint8_t data_flag10 = 0x73; // 24 Cayenne LPP barometric pressure
-	uint8_t press_1 = 0;		// 25
-	uint8_t press_2 = 0;		// 26
-	uint8_t data_flag11 = 0x06; // 27 Cayenne LPP channel
-	uint8_t data_flag12 = 0x02; // 28 Cayenne LPP analog value gas resistence
-	uint8_t gas_1 = 0;			// 29
-	uint8_t gas_2 = 0;			// 30
+	uint8_t data_flag3 = 0x02;	// 12 1  Cayenne LPP channel
+	uint8_t data_flag4 = 0x02;	// 13 2  Cayenne LPP analog value battery
+	uint8_t batt_1 = 0;			// 14 3
+	uint8_t batt_2 = 0;			// 15 4
+	uint8_t data_flag5 = 0x03;	// 16 5  Cayenne LPP channel
+	uint8_t data_flag6 = 0x68;	// 17 6  Cayenne LPP humidity
+	uint8_t humid_1 = 0;		// 18 7
+	uint8_t data_flag7 = 0x04;	// 19 8  Cayenne LPP channel
+	uint8_t data_flag8 = 0x67;	// 20 9  Cayenne LPP temperature
+	uint8_t temp_1 = 0;			// 21 10
+	uint8_t temp_2 = 0;			// 22 11
+	uint8_t data_flag9 = 0x05;	// 23 12 Cayenne LPP channel
+	uint8_t data_flag10 = 0x73; // 24 13 Cayenne LPP barometric pressure
+	uint8_t press_1 = 0;		// 25 14
+	uint8_t press_2 = 0;		// 26 15
+	uint8_t data_flag11 = 0x06; // 27 16 Cayenne LPP channel
+	uint8_t data_flag12 = 0x02; // 28 17 Cayenne LPP analog value gas resistence
+	uint8_t gas_1 = 0;			// 29 18
+	uint8_t gas_2 = 0;			// 30 19
 };
 extern tracker_data_s g_tracker_data;
 #define TRACKER_DATA_LEN 30 // sizeof(g_tracker_data)

@@ -31,13 +31,13 @@ tracker_data_s g_tracker_data;
 latLong_s pos_union;
 
 /** Flag if location was found */
-bool last_read_ok = false;
+volatile bool last_read_ok = false;
 
 /** Flag if GNSS is serial or I2C */
 bool i2c_gnss = false;
 
 /** Switch between GNSS on/off (1) and GNSS power save mode (0)*/
-#define GNSS_OFF 0
+#define GNSS_OFF 1
 
 /**
  * @brief Initialize the GNSS
@@ -140,20 +140,22 @@ bool poll_gnss(void)
 	int32_t altitude = 0;
 	int32_t accuracy = 0;
 
-	time_t check_limit = 90000;
+	time_t check_limit = 15000;
 
-	if (g_lorawan_settings.send_repeat_time == 0)
-	{
-		check_limit = 90000;
-	}
-	else if (g_lorawan_settings.send_repeat_time <= 90000)
-	{
-		check_limit = g_lorawan_settings.send_repeat_time / 2;
-	}
-	else
-	{
-		check_limit = 90000;
-	}
+	// time_t check_limit = 90000;
+
+	// if (g_lorawan_settings.send_repeat_time == 0)
+	// {
+	// 	check_limit = 90000;
+	// }
+	// else if (g_lorawan_settings.send_repeat_time <= 90000)
+	// {
+	// 	check_limit = g_lorawan_settings.send_repeat_time / 2;
+	// }
+	// else
+	// {
+	// 	check_limit = 90000;
+	// }
 
 	MYLOG("GNSS", "GNSS timeout %ld", (long int)check_limit);
 
@@ -291,6 +293,13 @@ void gnss_task(void *pvParameters)
 {
 	MYLOG("GNSS", "GNSS Task started");
 
+#if GNSS_OFF == 1
+	// Power down the module
+	digitalWrite(WB_IO2, LOW);
+	delay(100);
+#endif
+
+	uint8_t busy_cnt = 0;
 	while (1)
 	{
 		if (xSemaphoreTake(g_gnss_sem, portMAX_DELAY) == pdTRUE)
@@ -312,6 +321,12 @@ void gnss_task(void *pvParameters)
 			}
 			else
 			{
+				busy_cnt++;
+				if (busy_cnt == 2)
+				{
+					busy_cnt = 0;
+					lora_busy = false;
+				}
 				AT_PRINTF("+EVT:LOCATION_SKIP\n");
 			}
 			MYLOG("GNSS", "GNSS Task finished");
