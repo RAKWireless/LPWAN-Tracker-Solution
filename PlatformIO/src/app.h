@@ -3,8 +3,8 @@
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief For application specific includes and definitions
  *        Will be included from main.h
- * @version 0.1
- * @date 2021-04-23
+ * @version 0.2
+ * @date 2021-12-18
  * 
  * @copyright Copyright (c) 2021
  * 
@@ -96,6 +96,7 @@ struct tracker_data_s
 	uint8_t alt_1 = 0;			// 9
 	uint8_t alt_2 = 0;			// 10
 	uint8_t alt_3 = 0;			// 11
+// If no valid location was found, the above coordinates are omitted.
 	uint8_t data_flag3 = 0x02;	// 12 1  Cayenne LPP channel
 	uint8_t data_flag4 = 0x02;	// 13 2  Cayenne LPP analog value battery
 	uint8_t batt_1 = 0;			// 14 3

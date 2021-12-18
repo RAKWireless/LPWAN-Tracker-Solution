@@ -2,8 +2,8 @@
  * @file gnss.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief GNSS functions and task
- * @version 0.1
- * @date 2020-07-24
+ * @version 0.2
+ * @date 2021-12-28
  * 
  * @copyright Copyright (c) 2020
  * 
@@ -46,12 +46,8 @@ bool i2c_gnss = false;
 bool init_gnss(void)
 {
 	bool gnss_found = false;
-	// // Give the module some time to power up
-	// delay(2000);
 
 	// Power on the GNSS module
-	// pinMode(WB_IO2, OUTPUT);
-	// delay(100);
 	digitalWrite(WB_IO2, HIGH);
 
 	// Give the module some time to power up
@@ -107,13 +103,9 @@ bool init_gnss(void)
 		} while (1);
 	}
 
-	// my_gnss.setI2COutput(COM_TYPE_UBX);	  //Set the I2C port to output UBX only (turn off NMEA noise)
-	// my_gnss.setUART1Output(COM_TYPE_UBX); //Set the UART port to output UBX only
 	my_gnss.saveConfiguration(); //Save the current settings to flash and BBR
 
 	my_gnss.setMeasurementRate(500);
-
-	// my_gnss.powerSaveMode(true);
 
 	return gnss_found;
 }
@@ -129,7 +121,7 @@ bool poll_gnss(void)
 	MYLOG("GNSS", "poll_gnss");
 
 #if GNSS_OFF == 1
-	// Start connection
+	// Startup GNSS module
 	init_gnss();
 #endif
 
@@ -140,22 +132,20 @@ bool poll_gnss(void)
 	int32_t altitude = 0;
 	int32_t accuracy = 0;
 
-	time_t check_limit = 15000;
+	time_t check_limit = 90000;
 
-	// time_t check_limit = 90000;
-
-	// if (g_lorawan_settings.send_repeat_time == 0)
-	// {
-	// 	check_limit = 90000;
-	// }
-	// else if (g_lorawan_settings.send_repeat_time <= 90000)
-	// {
-	// 	check_limit = g_lorawan_settings.send_repeat_time / 2;
-	// }
-	// else
-	// {
-	// 	check_limit = 90000;
-	// }
+	if (g_lorawan_settings.send_repeat_time == 0)
+	{
+		check_limit = 90000;
+	}
+	else if (g_lorawan_settings.send_repeat_time <= 90000)
+	{
+		check_limit = g_lorawan_settings.send_repeat_time / 2;
+	}
+	else
+	{
+		check_limit = 90000;
+	}
 
 	MYLOG("GNSS", "GNSS timeout %ld", (long int)check_limit);
 
@@ -180,7 +170,6 @@ bool poll_gnss(void)
 		// if ((fix_type >= 3) && (my_gnss.getSIV() >= 5)) /** Fix type 3D and at least 5 satellites */
 		if (fix_type >= 3) /** Fix type 3D */
 		{
-			// digitalWrite(LED_CONN, HIGH);
 			has_pos = true;
 			last_read_ok = true;
 			latitude = my_gnss.getLatitude();
@@ -253,10 +242,6 @@ bool poll_gnss(void)
 
 		/// \todo Enable below to get a fake GPS position if no location fix could be obtained
 		// 	Serial.println("Faking GPS");
-		// 	/// \todo  For testing, an address in Recife, Brazil, which has both latitude and longitude negative
-		// 	// lat -8.0487740
-		// 	// long -34.9021580
-		// 	// alt 156.024
 		// 	// 14.4213730, 121.0069140, 35.000
 		// 	latitude = 144213730;
 		// 	longitude = 1210069140;
@@ -280,8 +265,6 @@ bool poll_gnss(void)
 
 	MYLOG("GNSS", "No valid location found");
 	last_read_ok = false;
-
-	// digitalWrite(LED_CONN, LOW);
 
 #if GNSS_OFF == 0
 	my_gnss.setMeasurementRate(1000);

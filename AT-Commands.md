@@ -490,7 +490,10 @@ This command allows the user to join a LoRaWAN® network.
 |                             | *Param3* = **Reattempt interval**: 7 - 255 seconds (30 is default)                                  |                                  |                       |
 |                             | *Param4* = **No. of join attempts**: 0 - 255 (0 is default)                                        |                                  |                       |
 
-_**This is an asynchronous command. OK means that the device is joining. The completion of the JOIN can be verified with AT+NJS=? command.**_    
+_**This is an asynchronous command. OK means that the device is joining. The completion of the JOIN can be verified with AT+NJS=? command.**_     
+The asynchronous responses can be:     
+`+EVT:JOINED` after successful join    
+`+EVT:JOIN FAILED` if the join process did not succeed.    
 
 _**Param3 is not supported yet and is fixed to 30s always**_
 
@@ -511,7 +514,7 @@ AT+JOIN=1:1:8:10
 
 OK
 
-AT+JOIN=SUCCESS
++EVT:JOINED
 
 AT+JOIN=3:1:8:10
 

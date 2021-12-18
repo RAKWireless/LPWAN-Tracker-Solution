@@ -4,8 +4,8 @@
  * @brief Application specific functions. Mandatory to have init_app(), 
  *        app_event_handler(), ble_data_handler(), lora_data_handler()
  *        and lora_tx_finished()
- * @version 0.1
- * @date 2021-04-23
+ * @version 0.2
+ * @date 2021-12-18
  * 
  * @copyright Copyright (c) 2021
  * 
@@ -65,6 +65,8 @@ bool init_app(void)
 {
 	bool init_result = true;
 	MYLOG("APP", "init_app");
+
+	api_set_version(SW_VERSION_1, SW_VERSION_2, SW_VERSION_3);
 
 	// Initialize Serial for debug output
 	Serial.begin(115200);
@@ -199,7 +201,7 @@ void app_event_handler(void)
 		{
 			if (g_lorawan_settings.lorawan_enable)
 			{
-				// Send only the battery level
+				// Send only the battery level over LoRaWAN
 				lmh_error_status result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 4);
 				switch (result)
 				{
@@ -219,7 +221,8 @@ void app_event_handler(void)
 			}
 			else
 			{
-				if (send_p2p_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN))
+				// Send only the battery level over LoRa
+				if (send_p2p_packet((uint8_t *)&g_tracker_data.data_flag3, 4))
 				{
 					MYLOG("APP", "Packet enqueued");
 				}
@@ -310,6 +313,7 @@ void app_event_handler(void)
 			}
 		}
 
+			// Send full packet over LoRaWAN
 			lmh_error_status result;
 			if (last_read_ok)
 		{
@@ -368,6 +372,7 @@ void app_event_handler(void)
 		}
 		else
 		{
+			// Send full packet over LoRa
 			if (send_p2p_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN))
 			{
 				MYLOG("APP", "Packet enqueued");

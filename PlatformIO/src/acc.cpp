@@ -2,8 +2,8 @@
  * @file acc.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief 3-axis accelerometer functions
- * @version 0.1
- * @date 2021-11-18
+ * @version 0.2
+ * @date 2021-12-18
  * 
  * @copyright Copyright (c) 2021
  * 
@@ -55,8 +55,6 @@ bool init_acc(void)
 	data_to_write = 0;
 	data_to_write |= 0x10;									  // 1/8 range
 	acc_sensor.writeRegister(LIS3DH_INT1_THS, data_to_write); // 1/8th range
-	// data_to_write |= 0x08;									  // 1/16 range
-	// acc_sensor.writeRegister(LIS3DH_INT1_THS, data_to_write); // 1/16th range
 
 	// Set interrupt signal length
 	data_to_write = 0;
@@ -101,6 +99,11 @@ bool init_acc(void)
 	return true;
 }
 
+/**
+ * @brief Read ACC X, Y and Z values
+ * 		Used only for debug, the values are not transmitted over LoRa
+ * 
+ */
 void read_acc(void)
 {
 	int16_t acc_x = (int16_t)(acc_sensor.readFloatAccelX() * 1000.0);

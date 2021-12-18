@@ -2,8 +2,8 @@
  * @file environment.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief Initialization and reading of BME680 sensor
- * @version 0.1
- * @date 2021-08-21
+ * @version 0.2
+ * @date 2021-12-18
  * 
  * @copyright Copyright (c) 2021
  * 
@@ -11,8 +11,15 @@
 
 #include "app.h"
 
+/** Instance of the BME680 class */
 Adafruit_BME680 bme;
 
+/**
+ * @brief Initialize the BME680 sensor
+ * 
+ * @return true if sensor was found
+ * @return false if sensor was not found
+ */
 bool init_bme(void)
 {
 	if (!bme.begin(0x76, false))
@@ -30,12 +37,22 @@ bool init_bme(void)
 	return true;
 }
 
+/**
+ * @brief Start sensing on the BME6860
+ * 
+ */
 void start_bme(void)
 {
 	MYLOG("BME", "Start BME reading");
 	bme.beginReading();
 }
 
+/**
+ * @brief Read environment data from BME680
+ * 
+ * @return true if reading was successful
+ * @return false if reading failed
+ */
 bool read_bme(void)
 {
 	time_t wait_start = millis();
