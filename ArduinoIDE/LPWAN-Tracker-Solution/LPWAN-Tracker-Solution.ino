@@ -45,6 +45,9 @@ uint8_t send_fail = 0;
 /** Flag for low battery protection */
 bool low_batt_protection = false;
 
+/** Initialization result */
+bool init_result = true;
+
 /**
  * @brief Application specific setup functions
  * 
@@ -63,7 +66,7 @@ void setup_app(void)
  */
 bool init_app(void)
 {
-	bool init_result = true;
+
 	MYLOG("APP", "init_app");
 
 	api_set_version(SW_VERSION_1, SW_VERSION_2, SW_VERSION_3);
@@ -120,7 +123,7 @@ bool init_app(void)
 			MYLOG("APP", "Failed to start GNSS task");
 		}
 		last_pos_send = millis();
-		g_lpwan_has_joined=true;
+		g_lpwan_has_joined = true;
 	}
 
 	// Initialize ACC sensor
@@ -139,7 +142,7 @@ bool init_app(void)
 		// Send repeat time is 0, set delay to 30 seconds
 		min_delay = 30000;
 	}
-	
+
 	// Set delayed sending to 1/2 of programmed send interval or 30 seconds
 	delayed_sending.begin(min_delay, send_delayed, NULL, false);
 
@@ -159,6 +162,12 @@ void app_event_handler(void)
 		g_task_event_type &= N_STATUS;
 		MYLOG("APP", "Timer wakeup");
 
+		// Initialization failed, report error over AT interface */
+		if (!init_result)
+		{
+			AT_PRINTF("+EVT:HW_FAILURE\n");
+		}
+
 		// If BLE is enabled, restart Advertising
 		if (g_enable_ble)
 		{
@@ -167,11 +176,13 @@ void app_event_handler(void)
 
 		if (!low_batt_protection)
 		{
-			// Wake up the temperature sensor and start measurements
-			start_bme();
+			if (init_result)
+			{ // Wake up the temperature sensor and start measurements
+				start_bme();
 
-			// Start the GNSS location tracking
-			xSemaphoreGive(g_gnss_sem);
+				// Start the GNSS location tracking
+				xSemaphoreGive(g_gnss_sem);
+			}
 		}
 
 		// Get battery level
@@ -197,7 +208,7 @@ void app_event_handler(void)
 			MYLOG("APP", "Battery protection deactivated");
 		}
 
-		if (low_batt_protection)
+		if (low_batt_protection || !init_result)
 		{
 			if (g_lorawan_settings.lorawan_enable)
 			{
@@ -307,16 +318,16 @@ void app_event_handler(void)
 			if (g_lorawan_settings.lora_region == 8)
 			{
 				if (g_lorawan_settings.data_rate == 0)
-			{
+				{
 					AT_PRINTF("+EVT:DR_ERROR\n");
 					return;
+				}
 			}
-		}
 
 			// Send full packet over LoRaWAN
 			lmh_error_status result;
 			if (last_read_ok)
-		{
+			{
 				result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
 			}
 			else
@@ -353,15 +364,15 @@ void app_event_handler(void)
 				case LMH_BUSY:
 					AT_PRINTF("+EVT:BUSY\n");
 					MYLOG("APP", "LoRa transceiver is busy");
-				break;
-			case LMH_ERROR:
+					break;
+				case LMH_ERROR:
 					AT_PRINTF("+EVT:SIZE_ERROR RETRY\n");
 					if (last_read_ok)
 					{
 						result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
 					}
 					else
-				{
+					{
 						result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 19);
 					}
 					AT_PRINTF("+EVT:SIZE_ERROR\n");
@@ -444,7 +455,7 @@ void lora_data_handler(void)
 			MYLOG("APP", "Join network failed");
 			AT_PRINTF("+EVT:JOIN FAILED\n");
 			/// \todo here join could be restarted.
-			// lmh_join();
+			lmh_join();
 		}
 	}
 

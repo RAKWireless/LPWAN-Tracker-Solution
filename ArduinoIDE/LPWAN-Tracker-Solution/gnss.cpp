@@ -68,6 +68,7 @@ bool init_gnss(void)
 
 	if (!i2c_gnss)
 	{
+		uint8_t retry = 0;
 		//Assume that the U-Blox GNSS is running at 9600 baud (the default) or at 38400 baud.
 		//Loop until we're in sync and then ensure it's at 38400 baud.
 		do
@@ -99,6 +100,11 @@ bool init_gnss(void)
 			{
 				my_gnss.factoryReset();
 				delay(2000); //Wait a bit before trying again to limit the Serial output
+			}
+			retry++;
+			if (retry == 3)
+			{
+				break;
 			}
 		} while (1);
 	}
@@ -290,16 +296,16 @@ void gnss_task(void *pvParameters)
 			MYLOG("GNSS", "GNSS Task wake up");
 			if (!lora_busy)
 			{
-			AT_PRINTF("+EVT:START_LOCATION\n");
-			// Get location
-			bool got_location = poll_gnss();
-			AT_PRINTF("+EVT:LOCATION %s\n", got_location ? "FIX" : "NOFIX");
+				AT_PRINTF("+EVT:START_LOCATION\n");
+				// Get location
+				bool got_location = poll_gnss();
+				AT_PRINTF("+EVT:LOCATION %s\n", got_location ? "FIX" : "NOFIX");
 
-			// if ((g_task_sem != NULL) && got_location)
-			if (g_task_sem != NULL)
-			{
-				g_task_event_type |= GNSS_FIN;
-				xSemaphoreGiveFromISR(g_task_sem, &g_higher_priority_task_woken);
+				// if ((g_task_sem != NULL) && got_location)
+				if (g_task_sem != NULL)
+				{
+					g_task_event_type |= GNSS_FIN;
+					xSemaphoreGiveFromISR(g_task_sem, &g_higher_priority_task_woken);
 				}
 			}
 			else

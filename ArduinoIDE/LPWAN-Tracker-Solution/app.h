@@ -17,11 +17,11 @@
 //** Set the application firmware version here */
 //**********************************************/
 // ; major version increase on API change / not backwards compatible
-#define SW_VERSION_1 1 
+#define SW_VERSION_1 1
 // ; minor version increase on API change / backward compatible
-#define SW_VERSION_2 0 
+#define SW_VERSION_2 0
 // ; patch version increase on bugfix, no affect on API
-#define SW_VERSION_3 1 
+#define SW_VERSION_3 2
 
 #include <Arduino.h>
 /** Add you required includes after Arduino.h */
@@ -36,13 +36,13 @@
 #endif
 
 #if MY_DEBUG > 0
-#define MYLOG(tag, ...)           \
-	do                            \
-	{                             \
-		if (tag)                  \
-			PRINTF("[%s] ", tag); \
-		PRINTF(__VA_ARGS__);      \
-		PRINTF("\n");             \
+#define MYLOG(tag, ...)                     \
+	do                                      \
+	{                                       \
+		if (tag)                            \
+			PRINTF("[%s] ", tag);           \
+		PRINTF(__VA_ARGS__);                \
+		PRINTF("\n");                       \
 		if (g_ble_uart_is_connected)        \
 		{                                   \
 			g_ble_uart.printf(__VA_ARGS__); \
@@ -61,10 +61,10 @@ void ble_data_handler(void) __attribute__((weak));
 void lora_data_handler(void);
 
 /** Examples for application events */
-#define ACC_TRIGGER   0b1000000000000000
+#define ACC_TRIGGER 0b1000000000000000
 #define N_ACC_TRIGGER 0b0111111111111111
-#define GNSS_FIN      0b0100000000000000
-#define N_GNSS_FIN    0b1011111111111111
+#define GNSS_FIN 0b0100000000000000
+#define N_GNSS_FIN 0b1011111111111111
 
 /** Application stuff */
 extern BaseType_t g_higher_priority_task_woken;
@@ -106,7 +106,7 @@ struct tracker_data_s
 	uint8_t alt_1 = 0;			// 9
 	uint8_t alt_2 = 0;			// 10
 	uint8_t alt_3 = 0;			// 11
-// If no valid location was found, the above coordinates are omitted.
+								// If no valid location was found, the above coordinates are omitted.
 	uint8_t data_flag3 = 0x02;	// 12 1  Cayenne LPP channel
 	uint8_t data_flag4 = 0x02;	// 13 2  Cayenne LPP analog value battery
 	uint8_t batt_1 = 0;			// 14 3

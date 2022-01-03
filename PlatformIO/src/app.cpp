@@ -45,6 +45,9 @@ uint8_t send_fail = 0;
 /** Flag for low battery protection */
 bool low_batt_protection = false;
 
+/** Initialization result */
+bool init_result = true;
+
 /**
  * @brief Application specific setup functions
  * 
@@ -63,7 +66,7 @@ void setup_app(void)
  */
 bool init_app(void)
 {
-	bool init_result = true;
+
 	MYLOG("APP", "init_app");
 
 	api_set_version(SW_VERSION_1, SW_VERSION_2, SW_VERSION_3);
@@ -159,6 +162,12 @@ void app_event_handler(void)
 		g_task_event_type &= N_STATUS;
 		MYLOG("APP", "Timer wakeup");
 
+		// Initialization failed, report error over AT interface */
+		if (!init_result)
+		{
+			AT_PRINTF("+EVT:HW_FAILURE\n");
+		}
+
 		// If BLE is enabled, restart Advertising
 		if (g_enable_ble)
 		{
@@ -167,11 +176,13 @@ void app_event_handler(void)
 
 		if (!low_batt_protection)
 		{
-			// Wake up the temperature sensor and start measurements
-			start_bme();
+			if (init_result)
+			{ // Wake up the temperature sensor and start measurements
+				start_bme();
 
-			// Start the GNSS location tracking
-			xSemaphoreGive(g_gnss_sem);
+				// Start the GNSS location tracking
+				xSemaphoreGive(g_gnss_sem);
+			}
 		}
 
 		// Get battery level
@@ -197,7 +208,7 @@ void app_event_handler(void)
 			MYLOG("APP", "Battery protection deactivated");
 		}
 
-		if (low_batt_protection)
+		if (low_batt_protection || !init_result)
 		{
 			if (g_lorawan_settings.lorawan_enable)
 			{
@@ -444,7 +455,7 @@ void lora_data_handler(void)
 			MYLOG("APP", "Join network failed");
 			AT_PRINTF("+EVT:JOIN FAILED\n");
 			/// \todo here join could be restarted.
-			// lmh_join();
+			lmh_join();
 		}
 	}
 

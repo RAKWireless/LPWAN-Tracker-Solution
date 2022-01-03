@@ -68,6 +68,7 @@ bool init_gnss(void)
 
 	if (!i2c_gnss)
 	{
+		uint8_t retry = 0;
 		//Assume that the U-Blox GNSS is running at 9600 baud (the default) or at 38400 baud.
 		//Loop until we're in sync and then ensure it's at 38400 baud.
 		do
@@ -99,6 +100,11 @@ bool init_gnss(void)
 			{
 				my_gnss.factoryReset();
 				delay(2000); //Wait a bit before trying again to limit the Serial output
+			}
+			retry++;
+			if (retry == 3)
+			{
+				break;
 			}
 		} while (1);
 	}
