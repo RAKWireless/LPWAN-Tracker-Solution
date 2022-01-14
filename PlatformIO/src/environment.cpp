@@ -14,6 +14,9 @@
 /** Instance of the BME680 class */
 Adafruit_BME680 bme;
 
+/** Environment packet */
+env_data_s g_env_data;
+
 /**
  * @brief Initialize the BME680 sensor
  * 
@@ -76,13 +79,13 @@ bool read_bme(void)
 	uint16_t press_int = (uint16_t)(bme.pressure / 10);
 	uint16_t gasres_int = (uint16_t)(bme.gas_resistance / 10);
 
-	g_tracker_data.humid_1 = (uint8_t)(humid_int);
-	g_tracker_data.temp_1 = (uint8_t)(temp_int >> 8);
-	g_tracker_data.temp_2 = (uint8_t)(temp_int);
-	g_tracker_data.press_1 = (uint8_t)(press_int >> 8);
-	g_tracker_data.press_2 = (uint8_t)(press_int);
-	g_tracker_data.gas_1 = (uint8_t)(gasres_int >> 8);
-	g_tracker_data.gas_2 = (uint8_t)(gasres_int);
+	g_env_data.humid_1 = (uint8_t)(humid_int);
+	g_env_data.temp_1 = (uint8_t)(temp_int >> 8);
+	g_env_data.temp_2 = (uint8_t)(temp_int);
+	g_env_data.press_1 = (uint8_t)(press_int >> 8);
+	g_env_data.press_2 = (uint8_t)(press_int);
+	g_env_data.gas_1 = (uint8_t)(gasres_int >> 8);
+	g_env_data.gas_2 = (uint8_t)(gasres_int);
 
 	MYLOG("BME", "RH= %.2f T= %.2f", (float)(humid_int / 2.0), (float)(temp_int / 10.0));
 	MYLOG("BME", "P= %d R= %d", press_int * 10, gasres_int * 10);

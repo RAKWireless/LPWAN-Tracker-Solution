@@ -24,8 +24,11 @@ SemaphoreHandle_t g_gnss_sem;
 /** GNSS polling function */
 bool poll_gnss(void);
 
-/** Location data as byte array */
-tracker_data_s g_tracker_data;
+/** Location data as byte array Cayenne LPP format */
+tracker_data_short_s g_tracker_data_s;
+
+/** Location data as byte array precise format */
+tracker_data_prec_s g_tracker_data_l;
 
 /** Latitude/Longitude value converter */
 latLong_s pos_union;
@@ -126,13 +129,14 @@ bool poll_gnss(void)
 {
 	MYLOG("GNSS", "poll_gnss");
 
+	last_read_ok = false;
+
 #if GNSS_OFF == 1
 	// Startup GNSS module
 	init_gnss();
 #endif
 
 	time_t time_out = millis();
-	bool has_pos = false;
 	int64_t latitude = 0;
 	int64_t longitude = 0;
 	int32_t altitude = 0;
@@ -157,58 +161,75 @@ bool poll_gnss(void)
 
 	while ((millis() - time_out) < check_limit)
 	{
-		byte fix_type = my_gnss.getFixType(); // Get the fix type
-		char fix_type_str[32] = {0};
-		if (fix_type == 0)
-			sprintf(fix_type_str, "No Fix");
-		else if (fix_type == 1)
-			sprintf(fix_type_str, "Dead reckoning");
-		else if (fix_type == 2)
-			sprintf(fix_type_str, "Fix type 2D");
-		else if (fix_type == 3)
-			sprintf(fix_type_str, "Fix type 3D");
-		else if (fix_type == 4)
-			sprintf(fix_type_str, "GNSS fix");
-		else if (fix_type == 5)
-			sprintf(fix_type_str, "Time fix");
-
-		// if (my_gnss.getGnssFixOk()) /** Don't care about accuracy */
-		// if ((fix_type >= 3) && (my_gnss.getSIV() >= 5)) /** Fix type 3D and at least 5 satellites */
-		if (fix_type >= 3) /** Fix type 3D */
+		if (my_gnss.getGnssFixOk())
 		{
-			has_pos = true;
-			last_read_ok = true;
-			latitude = my_gnss.getLatitude();
-			longitude = my_gnss.getLongitude();
-			altitude = my_gnss.getAltitude();
-			accuracy = my_gnss.getHorizontalDOP();
+			byte fix_type = my_gnss.getFixType(); // Get the fix type
+			char fix_type_str[32] = {0};
+			if (fix_type == 0)
+				sprintf(fix_type_str, "No Fix");
+			else if (fix_type == 1)
+				sprintf(fix_type_str, "Dead reckoning");
+			else if (fix_type == 2)
+				sprintf(fix_type_str, "Fix type 2D");
+			else if (fix_type == 3)
+				sprintf(fix_type_str, "Fix type 3D");
+			else if (fix_type == 4)
+				sprintf(fix_type_str, "GNSS fix");
+			else if (fix_type == 5)
+				sprintf(fix_type_str, "Time fix");
 
-			MYLOG("GNSS", "Fixtype: %d %s", my_gnss.getFixType(), fix_type_str);
-			MYLOG("GNSS", "Lat: %.4f Lon: %.4f", latitude / 10000000.0, longitude / 10000000.0);
-			MYLOG("GNSS", "Alt: %.2f", altitude / 1000.0);
-			MYLOG("GNSS", "Acy: %.2f ", accuracy / 100.0);
+			// if (my_gnss.getGnssFixOk()) /** Don't care about accuracy */
+			// if ((fix_type >= 3) && (my_gnss.getSIV() >= 5)) /** Fix type 3D and at least 5 satellites */
+			if (fix_type >= 3) /** Fix type 3D */
+			{
+				last_read_ok = true;
+				latitude = my_gnss.getLatitude();
+				longitude = my_gnss.getLongitude();
+				altitude = my_gnss.getAltitude();
+				accuracy = my_gnss.getHorizontalDOP();
 
-			pos_union.val32 = latitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
-			g_tracker_data.lat_1 = pos_union.val8[2];
-			g_tracker_data.lat_2 = pos_union.val8[1];
-			g_tracker_data.lat_3 = pos_union.val8[0];
+				MYLOG("GNSS", "Fixtype: %d %s", my_gnss.getFixType(), fix_type_str);
+				MYLOG("GNSS", "Lat: %.4f Lon: %.4f", latitude / 10000000.0, longitude / 10000000.0);
+				MYLOG("GNSS", "Alt: %.2f", altitude / 1000.0);
+				MYLOG("GNSS", "Acy: %.2f ", accuracy / 100.0);
 
-			pos_union.val32 = longitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
-			g_tracker_data.long_1 = pos_union.val8[2];
-			g_tracker_data.long_2 = pos_union.val8[1];
-			g_tracker_data.long_3 = pos_union.val8[0];
+				// Save default Cayenne LPP precision
+				pos_union.val32 = latitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
+				g_tracker_data_s.lat_1 = pos_union.val8[2];
+				g_tracker_data_s.lat_2 = pos_union.val8[1];
+				g_tracker_data_s.lat_3 = pos_union.val8[0];
 
-			pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
-			g_tracker_data.alt_1 = pos_union.val8[2];
-			g_tracker_data.alt_2 = pos_union.val8[1];
-			g_tracker_data.alt_3 = pos_union.val8[0];
+				pos_union.val32 = longitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
+				g_tracker_data_s.long_1 = pos_union.val8[2];
+				g_tracker_data_s.long_2 = pos_union.val8[1];
+				g_tracker_data_s.long_3 = pos_union.val8[0];
 
-			// pos_union.val32 = accuracy;
-			// g_tracker_data.acy_1 = pos_union.val8[0];
-			// g_tracker_data.acy_2 = pos_union.val8[1];
+				pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
+				g_tracker_data_s.alt_1 = pos_union.val8[2];
+				g_tracker_data_s.alt_2 = pos_union.val8[1];
+				g_tracker_data_s.alt_3 = pos_union.val8[0];
 
-			// Break the while()
-			break;
+				// Save extended precision, not Cayenne LPP compatible
+				pos_union.val32 = latitude / 10; // Custom 0.000001 ° Signed MSB
+				g_tracker_data_l.lat_1 = pos_union.val8[3];
+				g_tracker_data_l.lat_2 = pos_union.val8[2];
+				g_tracker_data_l.lat_3 = pos_union.val8[1];
+				g_tracker_data_l.lat_4 = pos_union.val8[0];
+
+				pos_union.val32 = longitude / 10; // Custom 0.000001 ° Signed MSB
+				g_tracker_data_l.long_1 = pos_union.val8[3];
+				g_tracker_data_l.long_2 = pos_union.val8[2];
+				g_tracker_data_l.long_3 = pos_union.val8[1];
+				g_tracker_data_l.long_4 = pos_union.val8[0];
+
+				pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
+				g_tracker_data_l.alt_1 = pos_union.val8[2];
+				g_tracker_data_l.alt_2 = pos_union.val8[1];
+				g_tracker_data_l.alt_3 = pos_union.val8[0];
+
+				// Break the while()
+				break;
+			}
 		}
 		else
 		{
@@ -222,7 +243,7 @@ bool poll_gnss(void)
 	delay(100);
 #endif
 
-	if (has_pos)
+	if (last_read_ok)
 	{
 #if GNSS_OFF == 0
 		my_gnss.setMeasurementRate(10000);
@@ -234,17 +255,31 @@ bool poll_gnss(void)
 	else
 	{
 		// No location found, set the data to 0
-		g_tracker_data.lat_1 = 0;
-		g_tracker_data.lat_2 = 0;
-		g_tracker_data.lat_3 = 0;
+		g_tracker_data_s.lat_1 = 0;
+		g_tracker_data_s.lat_2 = 0;
+		g_tracker_data_s.lat_3 = 0;
 
-		g_tracker_data.long_1 = 0;
-		g_tracker_data.long_2 = 0;
-		g_tracker_data.long_3 = 0;
+		g_tracker_data_s.long_1 = 0;
+		g_tracker_data_s.long_2 = 0;
+		g_tracker_data_s.long_3 = 0;
 
-		g_tracker_data.alt_1 = 0;
-		g_tracker_data.alt_2 = 0;
-		g_tracker_data.alt_3 = 0;
+		g_tracker_data_s.alt_1 = 0;
+		g_tracker_data_s.alt_2 = 0;
+		g_tracker_data_s.alt_3 = 0;
+
+		g_tracker_data_l.lat_1 = 0;
+		g_tracker_data_l.lat_2 = 0;
+		g_tracker_data_l.lat_3 = 0;
+		g_tracker_data_l.lat_4 = 0;
+
+		g_tracker_data_l.long_1 = 0;
+		g_tracker_data_l.long_2 = 0;
+		g_tracker_data_l.long_3 = 0;
+		g_tracker_data_l.long_4 = 0;
+
+		g_tracker_data_l.alt_1 = 0;
+		g_tracker_data_l.alt_2 = 0;
+		g_tracker_data_l.alt_3 = 0;
 
 		/// \todo Enable below to get a fake GPS position if no location fix could be obtained
 		// 	Serial.println("Faking GPS");
@@ -253,20 +288,39 @@ bool poll_gnss(void)
 		// 	longitude = 1210069140;
 		// 	altitude = 35000;
 
-		// 	pos_union.val32 = latitude / 1000;
-		// 	g_tracker_data.lat_1 = pos_union.val8[2];
-		// 	g_tracker_data.lat_2 = pos_union.val8[1];
-		// 	g_tracker_data.lat_3 = pos_union.val8[0];
+		// Save default Cayenne LPP precision
+		// pos_union.val32 = latitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
+		// g_tracker_data_s.lat_1 = pos_union.val8[2];
+		// g_tracker_data_s.lat_2 = pos_union.val8[1];
+		// g_tracker_data_s.lat_3 = pos_union.val8[0];
 
-		// 	pos_union.val32 = longitude / 1000;
-		// 	g_tracker_data.long_1 = pos_union.val8[2];
-		// 	g_tracker_data.long_2 = pos_union.val8[1];
-		// 	g_tracker_data.long_3 = pos_union.val8[0];
+		// pos_union.val32 = longitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
+		// g_tracker_data_s.long_1 = pos_union.val8[2];
+		// g_tracker_data_s.long_2 = pos_union.val8[1];
+		// g_tracker_data_s.long_3 = pos_union.val8[0];
 
-		// pos_union.val32 = altitude / 10;
-		// g_tracker_data.alt_1 = pos_union.val8[2];
-		// g_tracker_data.alt_2 = pos_union.val8[1];
-		// g_tracker_data.alt_3 = pos_union.val8[0];
+		// pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
+		// g_tracker_data_s.alt_1 = pos_union.val8[2];
+		// g_tracker_data_s.alt_2 = pos_union.val8[1];
+		// g_tracker_data_s.alt_3 = pos_union.val8[0];
+
+		// // Save extended precision, not Cayenne LPP compatible
+		// pos_union.val32 = latitude / 10; // Custom 0.000001 ° Signed MSB
+		// g_tracker_data_l.lat_1 = pos_union.val8[3];
+		// g_tracker_data_l.lat_2 = pos_union.val8[2];
+		// g_tracker_data_l.lat_3 = pos_union.val8[1];
+		// g_tracker_data_l.lat_4 = pos_union.val8[0];
+
+		// pos_union.val32 = longitude / 10; // Custom 0.000001 ° Signed MSB
+		// g_tracker_data_l.long_1 = pos_union.val8[3];
+		// g_tracker_data_l.long_2 = pos_union.val8[2];
+		// g_tracker_data_l.long_3 = pos_union.val8[1];
+		// g_tracker_data_l.long_4 = pos_union.val8[0];
+
+		// pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
+		// g_tracker_data_l.alt_1 = pos_union.val8[2];
+		// g_tracker_data_l.alt_2 = pos_union.val8[1];
+		// g_tracker_data_l.alt_3 = pos_union.val8[0];
 	}
 
 	MYLOG("GNSS", "No valid location found");
