@@ -13,6 +13,22 @@
 #ifndef APP_H
 #define APP_H
 
+//**********************************************/
+//** Set the application firmware version here */
+//**********************************************/
+// ; major version increase on API change / not backwards compatible
+#ifndef SW_VERSION_1
+#define SW_VERSION_1 1
+#endif
+// ; minor version increase on API change / backward compatible
+#ifndef SW_VERSION_2
+#define SW_VERSION_2 0
+#endif
+// ; patch version increase on bugfix, no affect on API
+#ifndef SW_VERSION_3
+#define SW_VERSION_3 4
+#endif
+
 #include <Arduino.h>
 /** Add you required includes after Arduino.h */
 #include <Wire.h>
@@ -67,6 +83,10 @@ void clear_acc_int(void);
 void read_acc(void);
 
 // GNSS functions
+#define NO_GNSS_INIT 0
+#define RAK1910_GNSS 1
+#define RAK12500_GNSS 2
+#include "TinyGPS++.h"
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 bool init_gnss(void);
 bool poll_gnss(void);
@@ -74,6 +94,7 @@ void gnss_task(void *pvParameters);
 extern SemaphoreHandle_t g_gnss_sem;
 extern TaskHandle_t gnss_task_handle;
 extern volatile bool last_read_ok;
+extern uint8_t gnss_option;
 
 /** Temperature + Humidity stuff */
 #include <Adafruit_Sensor.h>
@@ -149,7 +170,6 @@ extern env_data_s g_env_data;
 #define ENVIRONMENT_DATA_LEN 19 // sizeof(g_tracker_data)
 
 extern uint8_t g_last_fport;
-extern volatile bool lora_busy;
 
 extern bool g_gps_prec_6;
 

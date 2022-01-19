@@ -16,9 +16,6 @@
 /** Set the device name, max length is 10 characters */
 char g_ble_dev_name[10] = "RAK-GNSS";
 
-/** Flag showing if TX cycle is ongoing */
-volatile bool lora_busy = false;
-
 /** Timer since last position message was sent */
 time_t last_pos_send = 0;
 /** Timer for delayed sending to keep duty cycle */
@@ -237,7 +234,9 @@ void app_event_handler(void)
 					// Wake up the temperature sensor and start measurements
 					start_bme();
 				}
-
+			}
+			if (gnss_option != NO_GNSS_INIT)
+			{
 				// Start the GNSS location tracking
 				xSemaphoreGive(g_gnss_sem);
 			}
@@ -266,7 +265,7 @@ void app_event_handler(void)
 			MYLOG("APP", "Battery protection deactivated");
 		}
 
-		if (low_batt_protection || !init_result)
+		if (low_batt_protection || (gnss_option == NO_GNSS_INIT))
 		{
 			if (g_lorawan_settings.lorawan_enable)
 			{
@@ -276,7 +275,6 @@ void app_event_handler(void)
 				{
 				case LMH_SUCCESS:
 					MYLOG("APP", "Packet enqueued");
-					lora_busy = true;
 					break;
 				case LMH_BUSY:
 					AT_PRINTF("+EVT:BUSY\n");
@@ -428,23 +426,13 @@ void app_event_handler(void)
 				}
 			}
 
-			// Send full packet over LoRaWAN
+			// Send packet over LoRaWAN
 			lmh_error_status result;
 			result = send_lora_packet(packet_buff, packet_len);
-			// if (last_read_ok)
-			// {
-			// 	result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
-			// }
-			// else
-			// {
-			// 	result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 19);
-			// }
 			switch (result)
 			{
 			case LMH_SUCCESS:
 				MYLOG("APP", "Packet enqueued");
-				/// \todo set a flag that TX cycle is running
-				lora_busy = true;
 				break;
 			case LMH_BUSY:
 				AT_PRINTF("+EVT:BUSY\n");
@@ -452,20 +440,10 @@ void app_event_handler(void)
 				break;
 			case LMH_ERROR:
 				result = send_lora_packet(packet_buff, packet_len);
-				// if (last_read_ok)
-				// {
-				// 	result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
-				// }
-				// else
-				// {
-				// 	result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 19);
-				// }
 				switch (result)
 				{
 				case LMH_SUCCESS:
 					MYLOG("APP", "Packet enqueued");
-					/// \todo set a flag that TX cycle is running
-					lora_busy = true;
 					break;
 				case LMH_BUSY:
 					AT_PRINTF("+EVT:BUSY\n");
@@ -474,14 +452,6 @@ void app_event_handler(void)
 				case LMH_ERROR:
 					AT_PRINTF("+EVT:SIZE_ERROR RETRY\n");
 					result = send_lora_packet(packet_buff, packet_len);
-					// if (last_read_ok)
-					// {
-					// 	result = send_lora_packet((uint8_t *)&g_tracker_data, TRACKER_DATA_LEN);
-					// }
-					// else
-					// {
-					// 	result = send_lora_packet((uint8_t *)&g_tracker_data.data_flag3, 19);
-					// }
 					AT_PRINTF("+EVT:SIZE_ERROR\n");
 					MYLOG("APP", "Packet error, too big to send with current DR");
 				}
@@ -570,8 +540,6 @@ void lora_data_handler(void)
 	if ((g_task_event_type & LORA_TX_FIN) == LORA_TX_FIN)
 	{
 		g_task_event_type &= N_LORA_TX_FIN;
-		/// \todo reset flag that TX cycle is running
-		lora_busy = false;
 
 		MYLOG("APP", "LPWAN TX cycle %s", g_rx_fin_result ? "finished ACK" : "failed NAK");
 
@@ -638,7 +606,7 @@ void lora_data_handler(void)
 			sprintf(&log_buff[log_idx], "%02X ", g_rx_lora_data[idx]);
 			log_idx += 3;
 		}
-		lora_busy = false;
+
 		MYLOG("APP", "%s", log_buff);
 	}
 }

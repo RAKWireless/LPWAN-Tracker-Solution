@@ -11,7 +11,8 @@
 #include "app.h"
 
 // The GNSS object
-SFE_UBLOX_GNSS my_gnss;
+TinyGPSPlus my_rak1910_gnss; // RAK1910_GNSS
+SFE_UBLOX_GNSS my_gnss;		 // RAK12500_GNSS
 
 /** LoRa task handle */
 TaskHandle_t gnss_task_handle;
@@ -39,6 +40,9 @@ volatile bool last_read_ok = false;
 /** Flag if GNSS is serial or I2C */
 bool i2c_gnss = false;
 
+/** The GPS module to use */
+uint8_t gnss_option = 0;
+
 /** Switch between GNSS on/off (1) and GNSS power save mode (0)*/
 #define GNSS_OFF 1
 
@@ -56,67 +60,109 @@ bool init_gnss(void)
 	// Give the module some time to power up
 	delay(500);
 
-	if (!my_gnss.begin())
+	if (gnss_option == NO_GNSS_INIT)
 	{
-		MYLOG("GNSS", "UBLOX did not answer on I2C, retry on Serial1");
-		i2c_gnss = false;
+		if (!my_gnss.begin())
+		{
+			MYLOG("GNSS", "UBLOX did not answer on I2C, retry on Serial1");
+			i2c_gnss = false;
+		}
+		else
+		{
+			MYLOG("GNSS", "UBLOX found on I2C");
+			i2c_gnss = true;
+			gnss_found = true;
+			my_gnss.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
+			gnss_option = RAK12500_GNSS;
+		}
+
+		if (!i2c_gnss)
+		{
+			uint8_t retry = 0;
+			//Assume that the U-Blox GNSS is running at 9600 baud (the default) or at 38400 baud.
+			//Loop until we're in sync and then ensure it's at 38400 baud.
+			do
+			{
+				MYLOG("GNSS", "GNSS: trying 38400 baud");
+				Serial1.begin(38400);
+				while (!Serial1)
+					;
+				if (my_gnss.begin(Serial1) == true)
+				{
+					MYLOG("GNSS", "UBLOX found on Serial1 with 38400");
+					my_gnss.setUART1Output(COM_TYPE_UBX); //Set the UART port to output UBX only
+					gnss_found = true;
+
+					gnss_option = RAK12500_GNSS;
+					break;
+				}
+				delay(100);
+				MYLOG("GNSS", "GNSS: trying 9600 baud");
+				Serial1.begin(9600);
+				while (!Serial1)
+					;
+				if (my_gnss.begin(Serial1) == true)
+				{
+					MYLOG("GNSS", "GNSS: connected at 9600 baud, switching to 38400");
+					my_gnss.setSerialRate(38400);
+					delay(100);
+				}
+				else
+				{
+					my_gnss.factoryReset();
+					delay(2000); //Wait a bit before trying again to limit the Serial output
+				}
+				retry++;
+				if (retry == 3)
+				{
+					break;
+				}
+			} while (1);
+		}
+
+		if (gnss_found)
+		{
+			my_gnss.saveConfiguration(); //Save the current settings to flash and BBR
+
+			my_gnss.setMeasurementRate(500);
+			return true;
+		}
+
+		// No RAK12500 found, assume RAK1910 is plugged in
+		gnss_option = RAK1910_GNSS;
+		MYLOG("GNSS", "Initialize RAK1910");
+		Serial1.end();
+		delay(500);
+		Serial1.begin(9600);
+		while (!Serial1)
+			;
+		return true;
 	}
 	else
 	{
-		MYLOG("GNSS", "UBLOX found on I2C");
-		i2c_gnss = true;
-		gnss_found = true;
-		my_gnss.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
-	}
-
-	if (!i2c_gnss)
-	{
-		uint8_t retry = 0;
-		//Assume that the U-Blox GNSS is running at 9600 baud (the default) or at 38400 baud.
-		//Loop until we're in sync and then ensure it's at 38400 baud.
-		do
+		if (gnss_option == RAK12500_GNSS)
 		{
-			MYLOG("GNSS", "GNSS: trying 38400 baud");
-			Serial1.begin(38400);
-			while (!Serial1)
-				;
-			if (my_gnss.begin(Serial1) == true)
+			if (i2c_gnss)
 			{
-				MYLOG("GNSS", "UBLOX found on Serial1 with 38400");
-				my_gnss.setUART1Output(COM_TYPE_UBX); //Set the UART port to output UBX only
-				gnss_found = true;
-
-				break;
-			}
-			delay(100);
-			MYLOG("GNSS", "GNSS: trying 9600 baud");
-			Serial1.begin(9600);
-			while (!Serial1)
-				;
-			if (my_gnss.begin(Serial1) == true)
-			{
-				MYLOG("GNSS", "GNSS: connected at 9600 baud, switching to 38400");
-				my_gnss.setSerialRate(38400);
-				delay(100);
+				my_gnss.begin();
+				my_gnss.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
 			}
 			else
 			{
-				my_gnss.factoryReset();
-				delay(2000); //Wait a bit before trying again to limit the Serial output
+				Serial1.begin(38400);
+				my_gnss.begin(Serial1);
+				my_gnss.setUART1Output(COM_TYPE_UBX); //Set the UART port to output UBX only
 			}
-			retry++;
-			if (retry == 3)
-			{
-				break;
-			}
-		} while (1);
+			my_gnss.setMeasurementRate(500);
+		}
+		else
+		{
+			Serial1.begin(9600);
+			while (!Serial1)
+				;
+		}
+		return true;
 	}
-
-	my_gnss.saveConfiguration(); //Save the current settings to flash and BBR
-
-	my_gnss.setMeasurementRate(500);
-
-	return gnss_found;
 }
 
 /**
@@ -159,81 +205,97 @@ bool poll_gnss(void)
 
 	MYLOG("GNSS", "GNSS timeout %ld", (long int)check_limit);
 
+	MYLOG("GNSS", "Using %s", gnss_option == RAK12500_GNSS ? "RAK12500" : "RAK1910");
+
+	bool has_pos = false;
+	bool has_alt = false;
+
 	while ((millis() - time_out) < check_limit)
 	{
-		if (my_gnss.getGnssFixOk())
+		if (gnss_option == RAK12500_GNSS)
 		{
-			byte fix_type = my_gnss.getFixType(); // Get the fix type
-			char fix_type_str[32] = {0};
-			if (fix_type == 0)
-				sprintf(fix_type_str, "No Fix");
-			else if (fix_type == 1)
-				sprintf(fix_type_str, "Dead reckoning");
-			else if (fix_type == 2)
-				sprintf(fix_type_str, "Fix type 2D");
-			else if (fix_type == 3)
-				sprintf(fix_type_str, "Fix type 3D");
-			else if (fix_type == 4)
-				sprintf(fix_type_str, "GNSS fix");
-			else if (fix_type == 5)
-				sprintf(fix_type_str, "Time fix");
-
-			// if (my_gnss.getGnssFixOk()) /** Don't care about accuracy */
-			// if ((fix_type >= 3) && (my_gnss.getSIV() >= 5)) /** Fix type 3D and at least 5 satellites */
-			if (fix_type >= 3) /** Fix type 3D */
+			if (my_gnss.getGnssFixOk())
 			{
-				last_read_ok = true;
-				latitude = my_gnss.getLatitude();
-				longitude = my_gnss.getLongitude();
-				altitude = my_gnss.getAltitude();
-				accuracy = my_gnss.getHorizontalDOP();
+				byte fix_type = my_gnss.getFixType(); // Get the fix type
+				char fix_type_str[32] = {0};
+				if (fix_type == 0)
+					sprintf(fix_type_str, "No Fix");
+				else if (fix_type == 1)
+					sprintf(fix_type_str, "Dead reckoning");
+				else if (fix_type == 2)
+					sprintf(fix_type_str, "Fix type 2D");
+				else if (fix_type == 3)
+					sprintf(fix_type_str, "Fix type 3D");
+				else if (fix_type == 4)
+					sprintf(fix_type_str, "GNSS fix");
+				else if (fix_type == 5)
+					sprintf(fix_type_str, "Time fix");
 
-				MYLOG("GNSS", "Fixtype: %d %s", my_gnss.getFixType(), fix_type_str);
-				MYLOG("GNSS", "Lat: %.4f Lon: %.4f", latitude / 10000000.0, longitude / 10000000.0);
-				MYLOG("GNSS", "Alt: %.2f", altitude / 1000.0);
-				MYLOG("GNSS", "Acy: %.2f ", accuracy / 100.0);
+				// if ((fix_type >= 3) && (my_gnss.getSIV() >= 5)) /** Fix type 3D and at least 5 satellites */
+				if (fix_type >= 3) /** Fix type 3D */
+				{
+					last_read_ok = true;
+					latitude = my_gnss.getLatitude();
+					longitude = my_gnss.getLongitude();
+					altitude = my_gnss.getAltitude();
+					accuracy = my_gnss.getHorizontalDOP();
 
-				// Save default Cayenne LPP precision
-				pos_union.val32 = latitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
-				g_tracker_data_s.lat_1 = pos_union.val8[2];
-				g_tracker_data_s.lat_2 = pos_union.val8[1];
-				g_tracker_data_s.lat_3 = pos_union.val8[0];
+					MYLOG("GNSS", "Fixtype: %d %s", my_gnss.getFixType(), fix_type_str);
+					MYLOG("GNSS", "Lat: %.4f Lon: %.4f", latitude / 10000000.0, longitude / 10000000.0);
+					MYLOG("GNSS", "Alt: %.2f", altitude / 1000.0);
+					MYLOG("GNSS", "Acy: %.2f ", accuracy / 100.0);
 
-				pos_union.val32 = longitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
-				g_tracker_data_s.long_1 = pos_union.val8[2];
-				g_tracker_data_s.long_2 = pos_union.val8[1];
-				g_tracker_data_s.long_3 = pos_union.val8[0];
-
-				pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
-				g_tracker_data_s.alt_1 = pos_union.val8[2];
-				g_tracker_data_s.alt_2 = pos_union.val8[1];
-				g_tracker_data_s.alt_3 = pos_union.val8[0];
-
-				// Save extended precision, not Cayenne LPP compatible
-				pos_union.val32 = latitude / 10; // Custom 0.000001 ° Signed MSB
-				g_tracker_data_l.lat_1 = pos_union.val8[3];
-				g_tracker_data_l.lat_2 = pos_union.val8[2];
-				g_tracker_data_l.lat_3 = pos_union.val8[1];
-				g_tracker_data_l.lat_4 = pos_union.val8[0];
-
-				pos_union.val32 = longitude / 10; // Custom 0.000001 ° Signed MSB
-				g_tracker_data_l.long_1 = pos_union.val8[3];
-				g_tracker_data_l.long_2 = pos_union.val8[2];
-				g_tracker_data_l.long_3 = pos_union.val8[1];
-				g_tracker_data_l.long_4 = pos_union.val8[0];
-
-				pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
-				g_tracker_data_l.alt_1 = pos_union.val8[2];
-				g_tracker_data_l.alt_2 = pos_union.val8[1];
-				g_tracker_data_l.alt_3 = pos_union.val8[0];
-
-				// Break the while()
-				break;
+					// Break the while()
+					break;
+				}
+			}
+			else
+			{
+				delay(1000);
 			}
 		}
 		else
 		{
-			delay(1000);
+			while (Serial1.available() > 0)
+			{
+				// char gnss = Serial1.read();
+				// Serial.print(gnss);
+				// if (my_rak1910_gnss.encode(gnss))
+				if (my_rak1910_gnss.encode(Serial1.read()))
+				{
+					if (my_rak1910_gnss.location.isUpdated() && my_rak1910_gnss.location.isValid())
+					{
+						MYLOG("GNSS", "Location valid");
+						has_pos = true;
+						latitude = (uint64_t)(my_rak1910_gnss.location.lat() * 10000000.0);
+						longitude = (uint64_t)(my_rak1910_gnss.location.lng() * 10000000.0);
+					}
+					else if (my_rak1910_gnss.altitude.isUpdated() && my_rak1910_gnss.altitude.isValid())
+					{
+						MYLOG("GNSS", "Altitude valid");
+						has_alt = true;
+						altitude = (uint32_t)(my_rak1910_gnss.altitude.meters() * 1000);
+					}
+					else if (my_rak1910_gnss.hdop.isUpdated() && my_rak1910_gnss.hdop.isValid())
+					{
+						accuracy = my_rak1910_gnss.hdop.hdop() * 100;
+					}
+				}
+				// if (has_pos && has_alt)
+				if (has_pos && has_alt)
+				{
+					MYLOG("GNSS", "Lat: %.4f Lon: %.4f", latitude / 10000000.0, longitude / 10000000.0);
+					MYLOG("GNSS", "Alt: %.2f", altitude / 1000.0);
+					MYLOG("GNSS", "Acy: %.2f ", accuracy / 100.0);
+					last_read_ok = true;
+					break;
+				}
+			}
+			if (has_pos && has_alt)
+			{
+				last_read_ok = true;
+				break;
+			}
 		}
 	}
 
@@ -245,6 +307,44 @@ bool poll_gnss(void)
 
 	if (last_read_ok)
 	{
+		if ((latitude == 0) && (longitude == 0))
+		{
+			last_read_ok = false;
+			return false;
+		}
+		// Save default Cayenne LPP precision
+		pos_union.val32 = latitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
+		g_tracker_data_s.lat_1 = pos_union.val8[2];
+		g_tracker_data_s.lat_2 = pos_union.val8[1];
+		g_tracker_data_s.lat_3 = pos_union.val8[0];
+
+		pos_union.val32 = longitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
+		g_tracker_data_s.long_1 = pos_union.val8[2];
+		g_tracker_data_s.long_2 = pos_union.val8[1];
+		g_tracker_data_s.long_3 = pos_union.val8[0];
+
+		pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
+		g_tracker_data_s.alt_1 = pos_union.val8[2];
+		g_tracker_data_s.alt_2 = pos_union.val8[1];
+		g_tracker_data_s.alt_3 = pos_union.val8[0];
+
+		// Save extended precision, not Cayenne LPP compatible
+		pos_union.val32 = latitude / 10; // Custom 0.000001 ° Signed MSB
+		g_tracker_data_l.lat_1 = pos_union.val8[3];
+		g_tracker_data_l.lat_2 = pos_union.val8[2];
+		g_tracker_data_l.lat_3 = pos_union.val8[1];
+		g_tracker_data_l.lat_4 = pos_union.val8[0];
+
+		pos_union.val32 = longitude / 10; // Custom 0.000001 ° Signed MSB
+		g_tracker_data_l.long_1 = pos_union.val8[3];
+		g_tracker_data_l.long_2 = pos_union.val8[2];
+		g_tracker_data_l.long_3 = pos_union.val8[1];
+		g_tracker_data_l.long_4 = pos_union.val8[0];
+
+		pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
+		g_tracker_data_l.alt_1 = pos_union.val8[2];
+		g_tracker_data_l.alt_2 = pos_union.val8[1];
+		g_tracker_data_l.alt_3 = pos_union.val8[0];
 #if GNSS_OFF == 0
 		my_gnss.setMeasurementRate(10000);
 		my_gnss.setNavigationFrequency(1, 10000);
@@ -327,7 +427,10 @@ bool poll_gnss(void)
 	last_read_ok = false;
 
 #if GNSS_OFF == 0
-	my_gnss.setMeasurementRate(1000);
+	if (gnss_option == RAK12500_GNSS)
+	{
+		my_gnss.setMeasurementRate(1000);
+	}
 #endif
 	return false;
 }
@@ -348,29 +451,16 @@ void gnss_task(void *pvParameters)
 		if (xSemaphoreTake(g_gnss_sem, portMAX_DELAY) == pdTRUE)
 		{
 			MYLOG("GNSS", "GNSS Task wake up");
-			if (!lora_busy)
-			{
-				AT_PRINTF("+EVT:START_LOCATION\n");
-				// Get location
-				bool got_location = poll_gnss();
-				AT_PRINTF("+EVT:LOCATION %s\n", got_location ? "FIX" : "NOFIX");
+			AT_PRINTF("+EVT:START_LOCATION\n");
+			// Get location
+			bool got_location = poll_gnss();
+			AT_PRINTF("+EVT:LOCATION %s\n", got_location ? "FIX" : "NOFIX");
 
-				// if ((g_task_sem != NULL) && got_location)
-				if (g_task_sem != NULL)
-				{
-					g_task_event_type |= GNSS_FIN;
-					xSemaphoreGiveFromISR(g_task_sem, &g_higher_priority_task_woken);
-				}
-			}
-			else
+			// if ((g_task_sem != NULL) && got_location)
+			if (g_task_sem != NULL)
 			{
-				busy_cnt++;
-				if (busy_cnt == 2)
-				{
-					busy_cnt = 0;
-					lora_busy = false;
-				}
-				AT_PRINTF("+EVT:LOCATION_SKIP\n");
+				g_task_event_type |= GNSS_FIN;
+				xSemaphoreGiveFromISR(g_task_sem, &g_higher_priority_task_woken);
 			}
 			MYLOG("GNSS", "GNSS Task finished");
 		}
