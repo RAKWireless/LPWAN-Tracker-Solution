@@ -2,10 +2,10 @@
  * @file user_at.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief Handle user defined AT commands
- * @version 0.1
- * @date 2021-12-06
+ * @version 0.3
+ * @date 2022-01-29
  * 
- * @copyright Copyright (c) 2021
+ * @copyright Copyright (c) 2022
  * 
  */
 
@@ -15,7 +15,10 @@
 using namespace Adafruit_LittleFS_Namespace;
 
 /** Filename to save GPS precision setting */
-static const char gps_name[] = "GPS";
+static const char gnss_name[] = "GNSS";
+
+/** Filename to save data format setting */
+static const char helium_format[] = "HELIUM";
 
 /** File to save GPS precision setting */
 File gps_file(InternalFS);
@@ -27,51 +30,66 @@ File gps_file(InternalFS);
 		g_ble_uart.printf(__VA_ARGS__); \
 	}
 
-bool user_at_handler(char *user_cmd, uint8_t cmd_size)
+/**
+ * @brief Returns in g_at_query_buf the current settings for the GNSS precision
+ * 
+ * @return int always 0
+ */
+static int at_query_gnss()
 {
-	MYLOG("APP", "Received User AT commmand >>%s<< len %d", user_cmd, cmd_size);
-
-	// Get the command itself
-	char *param;
-
-	param = strtok(user_cmd, ":");
-
-	// Check if the command is supported
-	if (strcmp(param, (const char *)"+GPS?") == 0)
+	if (g_is_helium)
 	{
-		// Location precision query
-		AT_PRINTF("Get/Set the GPS precision 0 = 4 digit, 1 = 6 digit");
-		return true;
+		snprintf(g_at_query_buf, ATQUERY_SIZE, "GPS precision: 2");
 	}
-	if (strcmp(param, (const char *)"+GPS=?") == 0)
+	else
 	{
-		// Location precision query
-		AT_PRINTF("GPS precision: %d", g_gps_prec_6 ? 1 : 0);
-		return true;
+		snprintf(g_at_query_buf, ATQUERY_SIZE, "GPS precision: %d", g_gps_prec_6 ? 1 : 0);
 	}
-	if (strcmp(param, (const char *)"+GPS=0") == 0)
-	{
-		// Low location precision requested
-		g_gps_prec_6 = false;
-		save_gps_settings();
-		AT_PRINTF("GPS precision: %d\nOK", g_gps_prec_6 ? 1 : 0);
-		return true;
-	}
-	if (strcmp(param, (const char *)"+GPS=1") == 0)
-	{
-		// High location precision requested
-		g_gps_prec_6 = true;
-		save_gps_settings();
-		AT_PRINTF("GPS precision: %d\nOK", g_gps_prec_6 ? 1 : 0);
-		return true;
-	}
-
-	return false;
+	return 0;
 }
 
+/**
+ * @brief Command to set the GNSS precision
+ * 
+ * @param str Either '0' or '1'
+ *  '0' sets the precission to 4 digits
+ *  '1' sets the precission to 6 digits
+ *  '2' sets the dataformat to Helium Mapper
+ * @return int 0 if the command was succesfull, 5 if the parameter was wrong
+ */
+static int at_exec_gnss(char *str)
+{
+	if (str[0] == '0')
+	{
+		g_is_helium = false;
+		g_gps_prec_6 = false;
+		save_gps_settings();
+	}
+	else if (str[0] == '1')
+	{
+		g_is_helium = false;
+		g_gps_prec_6 = true;
+		save_gps_settings();
+	}
+	else if (str[0] == '2')
+	{
+		g_is_helium = true;
+		save_gps_settings();
+	}
+	else
+	{
+		return AT_ERRNO_PARA_VAL;
+	}
+	return 0;
+}
+
+/**
+ * @brief Read saved setting for precision and packet format
+ * 
+ */
 void read_gps_settings(void)
 {
-	if (InternalFS.exists(gps_name))
+	if (InternalFS.exists(gnss_name))
 	{
 		g_gps_prec_6 = true;
 		MYLOG("USR_AT", "File found, set precision to high");
@@ -81,20 +99,59 @@ void read_gps_settings(void)
 		g_gps_prec_6 = false;
 		MYLOG("USR_AT", "File not found, set precision to low");
 	}
+	if (InternalFS.exists(helium_format))
+	{
+		g_is_helium = true;
+		MYLOG("USR_AT", "File found, set Helium Mapper format");
+	}
+	else
+	{
+		g_is_helium = false;
+		MYLOG("USR_AT", "File not found, set Cayenne LPP format");
+	}
 }
 
+/**
+ * @brief Save the GPS settings
+ * 
+ */
 void save_gps_settings(void)
 {
 	if (g_gps_prec_6)
 	{
-		gps_file.open(gps_name, FILE_O_WRITE);
+		gps_file.open(gnss_name, FILE_O_WRITE);
 		gps_file.write("1");
 		gps_file.close();
 		MYLOG("USR_AT", "Created File for high precision");
 	}
 	else
 	{
-		InternalFS.remove(gps_name);
+		InternalFS.remove(gnss_name);
 		MYLOG("USR_AT", "Remove File for high precision");
 	}
+	if (g_is_helium)
+	{
+		gps_file.open(helium_format, FILE_O_WRITE);
+		gps_file.write("1");
+		gps_file.close();
+		MYLOG("USR_AT", "Created File for Helium Mapper format");
+	}
+	else
+	{
+		InternalFS.remove(helium_format);
+		MYLOG("USR_AT", "Remove File for Helium Mapper format");
+	}
 }
+
+/**
+ * @brief List of all available commands with short help and pointer to functions
+ * 
+ */
+atcmd_t g_user_at_cmd_list[] = {
+	/*|    CMD    |     AT+CMD?      |    AT+CMD=?    |  AT+CMD=value |  AT+CMD  |*/
+	// GNSS commands
+	{"+GNSS", "Get/Set the GNSS precision and format 0 = 4 digit, 1 = 6 digit, 2 = Helium Mapper", at_query_gnss, at_exec_gnss, NULL},
+};
+
+/** Number of user defined AT commands */
+uint8_t g_user_at_cmd_num = sizeof(g_user_at_cmd_list) / sizeof(atcmd_t);

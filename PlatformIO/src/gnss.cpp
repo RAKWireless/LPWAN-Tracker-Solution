@@ -2,10 +2,10 @@
  * @file gnss.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief GNSS functions and task
- * @version 0.2
- * @date 2021-12-28
+ * @version 0.3
+ * @date 2022-01-29
  * 
- * @copyright Copyright (c) 2020
+ * @copyright Copyright (c) 2022
  * 
  */
 #include "app.h"
@@ -25,15 +25,6 @@ SemaphoreHandle_t g_gnss_sem;
 /** GNSS polling function */
 bool poll_gnss(void);
 
-/** Location data as byte array Cayenne LPP format */
-tracker_data_short_s g_tracker_data_s;
-
-/** Location data as byte array precise format */
-tracker_data_prec_s g_tracker_data_l;
-
-/** Latitude/Longitude value converter */
-latLong_s pos_union;
-
 /** Flag if location was found */
 volatile bool last_read_ok = false;
 
@@ -43,12 +34,11 @@ bool i2c_gnss = false;
 /** The GPS module to use */
 uint8_t gnss_option = 0;
 
-/** Switch between GNSS on/off (1) and GNSS power save mode (0)*/
-#define GNSS_OFF 1
-
 /**
- * @brief Initialize the GNSS
+ * @brief Initialize GNSS module
  * 
+ * @return true if GNSS module was found
+ * @return false if no GNSS module was found
  */
 bool init_gnss(void)
 {
@@ -177,10 +167,11 @@ bool poll_gnss(void)
 
 	last_read_ok = false;
 
-#if GNSS_OFF == 1
-	// Startup GNSS module
-	init_gnss();
-#endif
+	if (!g_is_helium)
+	{
+		// Startup GNSS module
+		init_gnss();
+	}
 
 	time_t time_out = millis();
 	int64_t latitude = 0;
@@ -299,11 +290,12 @@ bool poll_gnss(void)
 		}
 	}
 
-#if GNSS_OFF == 1
-	// Power down the module
-	digitalWrite(WB_IO2, LOW);
-	delay(100);
-#endif
+	if (!g_is_helium)
+	{
+		// Power down the module
+		digitalWrite(WB_IO2, LOW);
+		delay(100);
+	}
 
 	if (last_read_ok)
 	{
@@ -312,138 +304,97 @@ bool poll_gnss(void)
 			last_read_ok = false;
 			return false;
 		}
-		// Save default Cayenne LPP precision
-		pos_union.val32 = latitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
-		g_tracker_data_s.lat_1 = pos_union.val8[2];
-		g_tracker_data_s.lat_2 = pos_union.val8[1];
-		g_tracker_data_s.lat_3 = pos_union.val8[0];
+		if (!g_is_helium)
+		{
+			if (g_gps_prec_6)
+			{
+				// Save extended precision, not Cayenne LPP compatible
+				g_data_packet.addGNSS_6(LPP_CHANNEL_GPS, latitude, longitude, altitude);
+			}
+			else
+			{
+				// Save default Cayenne LPP precision
+				g_data_packet.addGNSS_4(LPP_CHANNEL_GPS, latitude, longitude, altitude);
+			}
+		}
+		else
+		{
+			// Save default Cayenne LPP precision
+			g_data_packet.addGNSS_H(latitude, longitude, altitude, accuracy, read_batt());
+		}
 
-		pos_union.val32 = longitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
-		g_tracker_data_s.long_1 = pos_union.val8[2];
-		g_tracker_data_s.long_2 = pos_union.val8[1];
-		g_tracker_data_s.long_3 = pos_union.val8[0];
+		if (g_is_helium)
+		{
+			my_gnss.setMeasurementRate(10000);
+			my_gnss.setNavigationFrequency(1, 10000);
+			my_gnss.powerSaveMode(true, 10000);
+		}
 
-		pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
-		g_tracker_data_s.alt_1 = pos_union.val8[2];
-		g_tracker_data_s.alt_2 = pos_union.val8[1];
-		g_tracker_data_s.alt_3 = pos_union.val8[0];
-
-		// Save extended precision, not Cayenne LPP compatible
-		pos_union.val32 = latitude / 10; // Custom 0.000001 ° Signed MSB
-		g_tracker_data_l.lat_1 = pos_union.val8[3];
-		g_tracker_data_l.lat_2 = pos_union.val8[2];
-		g_tracker_data_l.lat_3 = pos_union.val8[1];
-		g_tracker_data_l.lat_4 = pos_union.val8[0];
-
-		pos_union.val32 = longitude / 10; // Custom 0.000001 ° Signed MSB
-		g_tracker_data_l.long_1 = pos_union.val8[3];
-		g_tracker_data_l.long_2 = pos_union.val8[2];
-		g_tracker_data_l.long_3 = pos_union.val8[1];
-		g_tracker_data_l.long_4 = pos_union.val8[0];
-
-		pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
-		g_tracker_data_l.alt_1 = pos_union.val8[2];
-		g_tracker_data_l.alt_2 = pos_union.val8[1];
-		g_tracker_data_l.alt_3 = pos_union.val8[0];
-#if GNSS_OFF == 0
-		my_gnss.setMeasurementRate(10000);
-		my_gnss.setNavigationFrequency(1, 10000);
-		my_gnss.powerSaveMode(true, 10000);
-#endif
 		return true;
 	}
 	else
 	{
-		// No location found, set the data to 0
-		g_tracker_data_s.lat_1 = 0;
-		g_tracker_data_s.lat_2 = 0;
-		g_tracker_data_s.lat_3 = 0;
-
-		g_tracker_data_s.long_1 = 0;
-		g_tracker_data_s.long_2 = 0;
-		g_tracker_data_s.long_3 = 0;
-
-		g_tracker_data_s.alt_1 = 0;
-		g_tracker_data_s.alt_2 = 0;
-		g_tracker_data_s.alt_3 = 0;
-
-		g_tracker_data_l.lat_1 = 0;
-		g_tracker_data_l.lat_2 = 0;
-		g_tracker_data_l.lat_3 = 0;
-		g_tracker_data_l.lat_4 = 0;
-
-		g_tracker_data_l.long_1 = 0;
-		g_tracker_data_l.long_2 = 0;
-		g_tracker_data_l.long_3 = 0;
-		g_tracker_data_l.long_4 = 0;
-
-		g_tracker_data_l.alt_1 = 0;
-		g_tracker_data_l.alt_2 = 0;
-		g_tracker_data_l.alt_3 = 0;
+		// No location found
 
 		/// \todo Enable below to get a fake GPS position if no location fix could be obtained
-		// 	Serial.println("Faking GPS");
+		// 	MYLOG("GNSS", "Faking GPS");
 		// 	// 14.4213730, 121.0069140, 35.000
 		// 	latitude = 144213730;
 		// 	longitude = 1210069140;
 		// 	altitude = 35000;
+		//  accuracy = 100;
 
-		// Save default Cayenne LPP precision
-		// pos_union.val32 = latitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
-		// g_tracker_data_s.lat_1 = pos_union.val8[2];
-		// g_tracker_data_s.lat_2 = pos_union.val8[1];
-		// g_tracker_data_s.lat_3 = pos_union.val8[0];
-
-		// pos_union.val32 = longitude / 1000; // Cayenne LPP 0.0001 ° Signed MSB
-		// g_tracker_data_s.long_1 = pos_union.val8[2];
-		// g_tracker_data_s.long_2 = pos_union.val8[1];
-		// g_tracker_data_s.long_3 = pos_union.val8[0];
-
-		// pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
-		// g_tracker_data_s.alt_1 = pos_union.val8[2];
-		// g_tracker_data_s.alt_2 = pos_union.val8[1];
-		// g_tracker_data_s.alt_3 = pos_union.val8[0];
-
-		// // Save extended precision, not Cayenne LPP compatible
-		// pos_union.val32 = latitude / 10; // Custom 0.000001 ° Signed MSB
-		// g_tracker_data_l.lat_1 = pos_union.val8[3];
-		// g_tracker_data_l.lat_2 = pos_union.val8[2];
-		// g_tracker_data_l.lat_3 = pos_union.val8[1];
-		// g_tracker_data_l.lat_4 = pos_union.val8[0];
-
-		// pos_union.val32 = longitude / 10; // Custom 0.000001 ° Signed MSB
-		// g_tracker_data_l.long_1 = pos_union.val8[3];
-		// g_tracker_data_l.long_2 = pos_union.val8[2];
-		// g_tracker_data_l.long_3 = pos_union.val8[1];
-		// g_tracker_data_l.long_4 = pos_union.val8[0];
-
-		// pos_union.val32 = altitude / 10; // Cayenne LPP 0.01 meter Signed MSB
-		// g_tracker_data_l.alt_1 = pos_union.val8[2];
-		// g_tracker_data_l.alt_2 = pos_union.val8[1];
-		// g_tracker_data_l.alt_3 = pos_union.val8[0];
+		// if (!g_is_helium)
+		// {
+		// 	if (g_gps_prec_6)
+		// 	{
+		// 		// Save extended precision, not Cayenne LPP compatible
+		// 		datapacket.addGPS_6(LPP_CHANNEL_GPS, latitude, longitude, altitude);
+		// 	}
+		// 	else
+		// 	{
+		// 		// Save default Cayenne LPP precision
+		// 		datapacket.addGPS_4(LPP_CHANNEL_GPS, latitude, longitude, altitude);
+		// 	}
+		// }
+		// else
+		// {
+		// 	// Save default Cayenne LPP precision
+		// 	datapacket.addGPS_H(latitude, longitude, altitude, accuracy, read_batt());
+		// }
+		// last_read_ok = true;
+		// return true;
 	}
 
 	MYLOG("GNSS", "No valid location found");
 	last_read_ok = false;
 
-#if GNSS_OFF == 0
-	if (gnss_option == RAK12500_GNSS)
+	if (g_is_helium)
 	{
-		my_gnss.setMeasurementRate(1000);
+		if (gnss_option == RAK12500_GNSS)
+		{
+			my_gnss.setMeasurementRate(1000);
+		}
 	}
-#endif
+
 	return false;
 }
 
+/**
+ * @brief Task to read from GNSS module without stopping the loop
+ * 
+ * @param pvParameters unused
+ */
 void gnss_task(void *pvParameters)
 {
 	MYLOG("GNSS", "GNSS Task started");
 
-#if GNSS_OFF == 1
-	// Power down the module
-	digitalWrite(WB_IO2, LOW);
-	delay(100);
-#endif
+	if (!g_is_helium)
+	{
+		// Power down the module
+		digitalWrite(WB_IO2, LOW);
+		delay(100);
+	}
 
 	uint8_t busy_cnt = 0;
 	while (1)
@@ -459,8 +410,7 @@ void gnss_task(void *pvParameters)
 			// if ((g_task_sem != NULL) && got_location)
 			if (g_task_sem != NULL)
 			{
-				g_task_event_type |= GNSS_FIN;
-				xSemaphoreGiveFromISR(g_task_sem, &g_higher_priority_task_woken);
+				api_wake_loop(GNSS_FIN);
 			}
 			MYLOG("GNSS", "GNSS Task finished");
 		}

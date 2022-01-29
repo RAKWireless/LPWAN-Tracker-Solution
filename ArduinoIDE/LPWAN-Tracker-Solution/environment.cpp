@@ -2,10 +2,10 @@
  * @file environment.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief Initialization and reading of BME680 sensor
- * @version 0.2
- * @date 2021-12-18
+ * @version 0.3
+ * @date 2022-01-29
  * 
- * @copyright Copyright (c) 2021
+ * @copyright Copyright (c) 2022
  * 
  */
 
@@ -13,9 +13,6 @@
 
 /** Instance of the BME680 class */
 Adafruit_BME680 bme;
-
-/** Environment packet */
-env_data_s g_env_data;
 
 /**
  * @brief Initialize the BME680 sensor
@@ -74,22 +71,23 @@ bool read_bme(void)
 		return false;
 	}
 
+#if MY_DEBUG > 0
 	int16_t temp_int = (int16_t)(bme.temperature * 10.0);
 	uint16_t humid_int = (uint16_t)(bme.humidity * 2);
 	uint16_t press_int = (uint16_t)(bme.pressure / 10);
 	uint16_t gasres_int = (uint16_t)(bme.gas_resistance / 10);
+#endif
 
-	g_env_data.humid_1 = (uint8_t)(humid_int);
-	g_env_data.temp_1 = (uint8_t)(temp_int >> 8);
-	g_env_data.temp_2 = (uint8_t)(temp_int);
-	g_env_data.press_1 = (uint8_t)(press_int >> 8);
-	g_env_data.press_2 = (uint8_t)(press_int);
-	g_env_data.gas_1 = (uint8_t)(gasres_int >> 8);
-	g_env_data.gas_2 = (uint8_t)(gasres_int);
+	g_data_packet.addRelativeHumidity(LPP_CHANNEL_HUMID, bme.humidity);
+	g_data_packet.addTemperature(LPP_CHANNEL_TEMP, bme.temperature);
+	g_data_packet.addBarometricPressure(LPP_CHANNEL_PRESS, bme.pressure / 100);
+	g_data_packet.addAnalogInput(LPP_CHANNEL_GAS, (float)(bme.gas_resistance) / 1000.0);
 
+#if MY_DEBUG > 0
 	MYLOG("BME", "RH= %.2f T= %.2f", (float)(humid_int / 2.0), (float)(temp_int / 10.0));
 	MYLOG("BME", "P= %d R= %d", press_int * 10, gasres_int * 10);
 	MYLOG("BME", "RH= %.2f T= %.2f", bme.humidity, bme.temperature);
 	MYLOG("BME", "P= %ld R= %ld", bme.pressure, bme.gas_resistance);
+#endif
 	return true;
 }

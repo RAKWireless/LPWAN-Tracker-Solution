@@ -3,10 +3,10 @@
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief For application specific includes and definitions
  *        Will be included from main.h
- * @version 0.2
- * @date 2021-12-18
+ * @version 0.3
+ * @date 2022-01-29
  * 
- * @copyright Copyright (c) 2021
+ * @copyright Copyright (c) 2022
  * 
  */
 
@@ -66,14 +66,12 @@ void app_event_handler(void);
 void ble_data_handler(void) __attribute__((weak));
 void lora_data_handler(void);
 
+/** Application stuff */
 /** Examples for application events */
 #define ACC_TRIGGER 0b1000000000000000
 #define N_ACC_TRIGGER 0b0111111111111111
 #define GNSS_FIN 0b0100000000000000
 #define N_GNSS_FIN 0b1011111111111111
-
-/** Application stuff */
-extern BaseType_t g_higher_priority_task_woken;
 
 /** Accelerometer stuff */
 #include <SparkFunLIS3DH.h>
@@ -105,73 +103,19 @@ void start_bme(void);
 extern bool has_env_sensor;
 
 // LoRaWan functions
-/** Packet definition for low precision */
-struct tracker_data_short_s
-{
-	uint8_t data_flag1 = 0x01; // 1 Cayenne LPP channel
-	uint8_t data_flag2 = 0x88; // 2 Cayenne LPP location
-	uint8_t lat_1 = 0;		   // 3
-	uint8_t lat_2 = 0;		   // 4
-	uint8_t lat_3 = 0;		   // 5
-	uint8_t long_1 = 0;		   // 6
-	uint8_t long_2 = 0;		   // 7
-	uint8_t long_3 = 0;		   // 8
-	uint8_t alt_1 = 0;		   // 9
-	uint8_t alt_2 = 0;		   // 10
-	uint8_t alt_3 = 0;		   // 11
-};
-extern tracker_data_short_s g_tracker_data_s;
-#define TRACKER_DATA_SHORT_LEN 11 // sizeof(g_tracker_data)
-
-/** Packet definition for high precision */
-struct tracker_data_prec_s
-{
-	uint8_t data_flag1 = 0x01; // 1 Cayenne LPP channel
-	uint8_t data_flag2 = 0x89; // 2 Cayenne LPP location
-	uint8_t lat_1 = 0;		   // 3
-	uint8_t lat_2 = 0;		   // 4
-	uint8_t lat_3 = 0;		   // 5
-	uint8_t lat_4 = 0;		   // 6
-	uint8_t long_1 = 0;		   // 7
-	uint8_t long_2 = 0;		   // 8
-	uint8_t long_3 = 0;		   // 9
-	uint8_t long_4 = 0;		   // 10
-	uint8_t alt_1 = 0;		   // 11
-	uint8_t alt_2 = 0;		   // 12
-	uint8_t alt_3 = 0;		   // 13
-};
-extern tracker_data_prec_s g_tracker_data_l;
-#define TRACKER_DATA_PREC_LEN 13 // sizeof(g_tracker_data)
-
-/** Packet definition for low precision */
-struct env_data_s
-{
-	uint8_t data_flag1 = 0x02;	// 1  Cayenne LPP channel
-	uint8_t data_flag2 = 0x02;	// 2  Cayenne LPP analog value battery
-	uint8_t batt_1 = 0;			// 3
-	uint8_t batt_2 = 0;			// 4
-	uint8_t data_flag3 = 0x03;	// 5  Cayenne LPP channel
-	uint8_t data_flag4 = 0x68;	// 6  Cayenne LPP humidity
-	uint8_t humid_1 = 0;		// 7
-	uint8_t data_flag5 = 0x04;	// 8  Cayenne LPP channel
-	uint8_t data_flag6 = 0x67;	// 9  Cayenne LPP temperature
-	uint8_t temp_1 = 0;			// 10
-	uint8_t temp_2 = 0;			// 11
-	uint8_t data_flag7 = 0x05;	// 12 Cayenne LPP channel
-	uint8_t data_flag8 = 0x73;	// 13 Cayenne LPP barometric pressure
-	uint8_t press_1 = 0;		// 14
-	uint8_t press_2 = 0;		// 15
-	uint8_t data_flag9 = 0x06;	// 16 Cayenne LPP channel
-	uint8_t data_flag10 = 0x02; // 17 Cayenne LPP analog value gas resistence
-	uint8_t gas_1 = 0;			// 18
-	uint8_t gas_2 = 0;			// 19
-};
-extern env_data_s g_env_data;
-#define ENVIRONMENT_DATA_LEN 19 // sizeof(g_tracker_data)
+#include "wisblock_cayenne.h"
+extern WisCayenne g_data_packet;
+#define LPP_CHANNEL_GPS 1
+#define LPP_CHANNEL_BATT 2
+#define LPP_CHANNEL_HUMID 3
+#define LPP_CHANNEL_TEMP 4
+#define LPP_CHANNEL_PRESS 5
+#define LPP_CHANNEL_GAS 6
 
 extern uint8_t g_last_fport;
 
 extern bool g_gps_prec_6;
+extern bool g_is_helium;
 
 void read_gps_settings(void);
 void save_gps_settings(void);

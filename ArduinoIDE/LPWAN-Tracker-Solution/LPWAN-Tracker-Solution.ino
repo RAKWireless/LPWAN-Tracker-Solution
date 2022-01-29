@@ -4,10 +4,10 @@
  * @brief Application specific functions. Mandatory to have init_app(), 
  *        app_event_handler(), ble_data_handler(), lora_data_handler()
  *        and lora_tx_finished()
- * @version 0.2
- * @date 2021-12-18
+ * @version 0.3
+ * @date 2022-01-29
  * 
- * @copyright Copyright (c) 2021
+ * @copyright Copyright (c) 2022
  * 
  */
 
@@ -20,8 +20,6 @@ char g_ble_dev_name[10] = "RAK-GNSS";
 time_t last_pos_send = 0;
 /** Timer for delayed sending to keep duty cycle */
 SoftwareTimer delayed_sending;
-/** Required for give semaphore from ISR */
-BaseType_t g_higher_priority_task_woken = pdTRUE;
 
 /** Battery level uinion */
 batt_s batt_level;
@@ -48,11 +46,11 @@ bool init_result = true;
 /** GPS precision */
 bool g_gps_prec_6 = true;
 
-/** Packet buffer */
-uint8_t packet_buff[TRACKER_DATA_PREC_LEN + ENVIRONMENT_DATA_LEN];
+/** Switch between Cayenne LPP and Helium Mapper data packet */
+bool g_is_helium = false;
 
-/** Packet size */
-uint8_t packet_len;
+/** Packet buffer */
+WisCayenne g_data_packet(255);
 
 /** Flag if environment sensor was found */
 bool has_env_sensor = false;
@@ -100,8 +98,18 @@ bool init_app(void)
 		}
 	}
 
+	// Get precision settings
+	read_gps_settings();
+
 	AT_PRINTF("============================\n");
-	AT_PRINTF("LPWAN Tracker Solution\n");
+	if (g_is_helium)
+	{
+		AT_PRINTF("Helium Mapper Solution\n");
+	}
+	else
+	{
+		AT_PRINTF("LPWAN Tracker Solution\n");
+	}
 	AT_PRINTF("Built with RAK's WisBlock\n");
 	AT_PRINTF("SW Version %d.%d.%d\n", g_sw_ver_1, g_sw_ver_2, g_sw_ver_3);
 	AT_PRINTF("LoRa(R) is a registered trademark or service mark of Semtech Corporation or its affiliates.\nLoRaWAN(R) is a licensed mark.\n");
@@ -110,9 +118,6 @@ bool init_app(void)
 
 	pinMode(WB_IO2, OUTPUT);
 	digitalWrite(WB_IO2, HIGH);
-
-	// Get precision settings
-	read_gps_settings();
 
 	// Start the I2C bus
 	Wire.begin();
@@ -159,14 +164,24 @@ bool init_app(void)
 	// Set delayed sending to 1/2 of programmed send interval or 30 seconds
 	delayed_sending.begin(min_delay, send_delayed, NULL, false);
 
+	AT_PRINTF("============================\n");
 	AT_PRINTF("GNSS Precision:\n");
-	if (g_gps_prec_6)
+	if (g_gps_prec_6 || g_is_helium)
 	{
 		AT_PRINTF("   6 decimal digit precision\n");
 	}
 	else
 	{
 		AT_PRINTF("   4 decimal digit precision\n");
+	}
+	AT_PRINTF("Data format:\n");
+	if (g_is_helium)
+	{
+		AT_PRINTF("   Helium Mapper data format\n");
+	}
+	else
+	{
+		AT_PRINTF("   Cayenne LPP data format\n");
 	}
 	AT_PRINTF("============================\n");
 
@@ -188,14 +203,19 @@ bool init_app(void)
 		AT_PRINTF("+EVT:ACC FAIL\n");
 		init_result = false;
 	}
-	if (has_env_sensor)
+	if (!g_is_helium)
 	{
-		AT_PRINTF("+EVT:ENV OK\n");
+		if (has_env_sensor)
+		{
+			AT_PRINTF("+EVT:ENV OK\n");
+		}
+		else
+		{
+			AT_PRINTF("+EVT:ENV FAIL\n");
+		}
 	}
-	else
-	{
-		AT_PRINTF("+EVT:ENV FAIL\n");
-	}
+
+	g_data_packet.reset();
 
 	return init_result;
 }
@@ -244,8 +264,10 @@ void app_event_handler(void)
 
 		// Get battery level
 		batt_level.batt16 = read_batt() / 10;
-		g_env_data.batt_1 = batt_level.batt8[1];
-		g_env_data.batt_2 = batt_level.batt8[0];
+		if (!g_is_helium)
+		{
+			g_data_packet.addVoltage(LPP_CHANNEL_BATT, read_batt() / 1000);
+		}
 
 		// Protection against battery drain
 		if (batt_level.batt16 < 290)
@@ -265,38 +287,42 @@ void app_event_handler(void)
 			MYLOG("APP", "Battery protection deactivated");
 		}
 
-		if (low_batt_protection || (gnss_option == NO_GNSS_INIT))
+		if (!g_is_helium)
 		{
-			if (g_lorawan_settings.lorawan_enable)
+			if (low_batt_protection || (gnss_option == NO_GNSS_INIT))
 			{
-				// Send only the battery level over LoRaWAN
-				lmh_error_status result = send_lora_packet((uint8_t *)&g_env_data, 4);
-				switch (result)
+				if (g_lorawan_settings.lorawan_enable)
 				{
-				case LMH_SUCCESS:
-					MYLOG("APP", "Packet enqueued");
-					break;
-				case LMH_BUSY:
-					AT_PRINTF("+EVT:BUSY\n");
-					MYLOG("APP", "LoRa transceiver is busy");
-					break;
-				case LMH_ERROR:
-					AT_PRINTF("+EVT:SIZE_ERROR\n");
-					MYLOG("APP", "Packet error, too big to send with current DR");
-					break;
-				}
-			}
-			else
-			{
-				// Send only the battery level over LoRa
-				if (send_p2p_packet((uint8_t *)&g_env_data, 4))
-				{
-					MYLOG("APP", "Packet enqueued");
+					// Send only the battery level over LoRaWAN
+					lmh_error_status result = send_lora_packet(g_data_packet.getBuffer(), g_data_packet.getSize());
+					switch (result)
+					{
+					case LMH_SUCCESS:
+						MYLOG("APP", "Packet enqueued");
+						break;
+					case LMH_BUSY:
+						AT_PRINTF("+EVT:BUSY\n");
+						MYLOG("APP", "LoRa transceiver is busy");
+						break;
+					case LMH_ERROR:
+						AT_PRINTF("+EVT:SIZE_ERROR\n");
+						MYLOG("APP", "Packet error, too big to send with current DR");
+						break;
+					}
 				}
 				else
 				{
-					MYLOG("APP", "Packet enqueued");
+					// Send only the battery level over LoRa
+					if (send_p2p_packet(g_data_packet.getBuffer(), g_data_packet.getSize()))
+					{
+						MYLOG("APP", "Packet enqueued");
+					}
+					else
+					{
+						MYLOG("APP", "Packet enqueued");
+					}
 				}
+				g_data_packet.reset();
 			}
 		}
 	}
@@ -359,59 +385,14 @@ void app_event_handler(void)
 		// Just in case
 		delayed_active = false;
 
-		memset(packet_buff, 0, (TRACKER_DATA_PREC_LEN + ENVIRONMENT_DATA_LEN));
-		if (last_read_ok)
-		{
-			if (g_gps_prec_6)
-			{
-				memcpy((void *)&packet_buff[0], (void *)&g_tracker_data_l, TRACKER_DATA_PREC_LEN);
-				if (has_env_sensor)
-				{
-					memcpy((void *)&packet_buff[TRACKER_DATA_PREC_LEN], (void *)&g_env_data, ENVIRONMENT_DATA_LEN);
-					packet_len = TRACKER_DATA_PREC_LEN + ENVIRONMENT_DATA_LEN;
-				}
-				else
-				{
-					memcpy((void *)&packet_buff[TRACKER_DATA_PREC_LEN], (void *)&g_env_data, 4);
-					packet_len = TRACKER_DATA_PREC_LEN + 4;
-				}
-			}
-			else
-			{
-				memcpy((void *)&packet_buff[0], (void *)&g_tracker_data_s, TRACKER_DATA_SHORT_LEN);
-				if (has_env_sensor)
-				{
-					memcpy((void *)&packet_buff[TRACKER_DATA_SHORT_LEN], (void *)&g_env_data, ENVIRONMENT_DATA_LEN);
-					packet_len = TRACKER_DATA_SHORT_LEN + ENVIRONMENT_DATA_LEN;
-				}
-				else
-				{
-					memcpy((void *)&packet_buff[TRACKER_DATA_SHORT_LEN], (void *)&g_env_data, 4);
-					packet_len = TRACKER_DATA_SHORT_LEN + 4;
-				}
-			}
-		}
-		else
-		{
-			if (has_env_sensor)
-			{
-				memcpy((void *)&packet_buff[0], (void *)&g_env_data, ENVIRONMENT_DATA_LEN);
-				packet_len = ENVIRONMENT_DATA_LEN;
-			}
-			else
-			{
-				memcpy((void *)&packet_buff[0], (void *)&g_env_data, 4);
-				packet_len = 4;
-			}
-		}
-
 #if MY_DEBUG == 1
-		for (int idx = 0; idx < packet_len; idx++)
+		uint8_t *packet_buff = g_data_packet.getBuffer();
+		for (int idx = 0; idx < g_data_packet.getSize(); idx++)
 		{
 			Serial.printf("%02X", packet_buff[idx]);
 		}
 		Serial.println("");
-		Serial.printf("Packetsize %d\n", packet_len);
+		Serial.printf("Packetsize %d\n", g_data_packet.getSize());
 #endif
 
 		if (g_lorawan_settings.lorawan_enable)
@@ -428,7 +409,7 @@ void app_event_handler(void)
 
 			// Send packet over LoRaWAN
 			lmh_error_status result;
-			result = send_lora_packet(packet_buff, packet_len);
+			result = send_lora_packet(g_data_packet.getBuffer(), g_data_packet.getSize());
 			switch (result)
 			{
 			case LMH_SUCCESS:
@@ -439,7 +420,7 @@ void app_event_handler(void)
 				MYLOG("APP", "LoRa transceiver is busy");
 				break;
 			case LMH_ERROR:
-				result = send_lora_packet(packet_buff, packet_len);
+				result = send_lora_packet(g_data_packet.getBuffer(), g_data_packet.getSize());
 				switch (result)
 				{
 				case LMH_SUCCESS:
@@ -451,7 +432,7 @@ void app_event_handler(void)
 					break;
 				case LMH_ERROR:
 					AT_PRINTF("+EVT:SIZE_ERROR RETRY\n");
-					result = send_lora_packet(packet_buff, packet_len);
+					result = send_lora_packet(g_data_packet.getBuffer(), g_data_packet.getSize());
 					AT_PRINTF("+EVT:SIZE_ERROR\n");
 					MYLOG("APP", "Packet error, too big to send with current DR");
 				}
@@ -461,7 +442,7 @@ void app_event_handler(void)
 		else
 		{
 			// Send packet over LoRa
-			if (send_p2p_packet(packet_buff, packet_len))
+			if (send_p2p_packet(g_data_packet.getBuffer(), g_data_packet.getSize()))
 			{
 				MYLOG("APP", "Packet enqueued");
 			}
@@ -471,6 +452,7 @@ void app_event_handler(void)
 				MYLOG("APP", "Packet too big");
 			}
 		}
+		g_data_packet.reset();
 	}
 }
 
@@ -620,6 +602,5 @@ void lora_data_handler(void)
  */
 void send_delayed(TimerHandle_t unused)
 {
-	g_task_event_type |= STATUS;
-	xSemaphoreGiveFromISR(g_task_sem, &g_higher_priority_task_woken);
+	api_wake_loop(STATUS);
 }

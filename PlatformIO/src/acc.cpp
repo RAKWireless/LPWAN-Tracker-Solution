@@ -2,10 +2,10 @@
  * @file acc.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
  * @brief 3-axis accelerometer functions
- * @version 0.2
- * @date 2021-12-18
+ * @version 0.3
+ * @date 2022-01-29
  * 
- * @copyright Copyright (c) 2021
+ * @copyright Copyright (c) 2022
  * 
  */
 #include "app.h"
@@ -53,7 +53,14 @@ bool init_acc(void)
 
 	// Set interrupt trigger range
 	data_to_write = 0;
-	data_to_write |= 0x10;									  // 1/8 range
+	if (g_is_helium)
+	{
+		data_to_write |= 0x03; // A lower threshold for mapping purposes
+	}
+	else
+	{
+		data_to_write |= 0x10; // 1/8 range
+	}
 	acc_sensor.writeRegister(LIS3DH_INT1_THS, data_to_write); // 1/8th range
 
 	// Set interrupt signal length
@@ -84,7 +91,6 @@ bool init_acc(void)
 	data_to_write |= 0x08;
 	acc_sensor.writeRegister(LIS3DH_CTRL_REG1, data_to_write);
 	delay(100);
-
 	data_to_write = 0;
 	acc_sensor.readRegister(&data_to_write, 0x1E);
 	data_to_write |= 0x90;
@@ -122,9 +128,7 @@ void read_acc(void)
  */
 void acc_int_callback(void)
 {
-	g_task_event_type |= ACC_TRIGGER;
-	MYLOG("ACC", "interrupt callback");
-	xSemaphoreGiveFromISR(g_task_sem, pdFALSE);
+	api_wake_loop(ACC_TRIGGER);
 }
 
 /**
@@ -135,18 +139,4 @@ void clear_acc_int(void)
 {
 	uint8_t data_read;
 	acc_sensor.readRegister(&data_read, LIS3DH_INT1_SRC);
-	if (data_read & 0x40)
-		MYLOG("ACC", "Interrupt Active 0x%X\n", data_read);
-	if (data_read & 0x20)
-		MYLOG("ACC", "Z high");
-	if (data_read & 0x10)
-		MYLOG("ACC", "Z low");
-	if (data_read & 0x08)
-		MYLOG("ACC", "Y high");
-	if (data_read & 0x04)
-		MYLOG("ACC", "Y low");
-	if (data_read & 0x02)
-		MYLOG("ACC", "X high");
-	if (data_read & 0x01)
-		MYLOG("ACC", "X low");
 }

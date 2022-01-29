@@ -7,8 +7,9 @@ This is the source code for the WisBlock Tracker Solution with RAK12500 GNSS mod
 Recommended WisBlock modules
 - [WisBlock Starter Kit](https://store.rakwireless.com/collections/kits-bundles/products/wisblock-starter-kit)
 - [RAK12500](https://store.rakwireless.com/collections/wisblock-sensor/products/wisblock-gnss-location-module-rak12500)
+- alternative [RAK1910](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK1910/Overview/) WisBlock Sensor GNSS module
 - [RAK1904](https://store.rakwireless.com/collections/wisblock-sensor/products/rak1904-lis3dh-3-axis-acceleration-sensor)
-- [RAK1906](https://store.rakwireless.com/collections/wisblock-sensor/products/rak1906-bme680-environment-sensor)
+- optional [RAK1906](https://store.rakwireless.com/collections/wisblock-sensor/products/rak1906-bme680-environment-sensor)
 - [RAKBox-B2](https://store.rakwireless.com/collections/wisblock-enclosure/products/rakbox-b2-enclosure-with-solar-panel)
 
 ## _REMARK 2_
@@ -20,8 +21,9 @@ This example is using the [WisBlock API](https://github.com/beegee-tokyo/WisBloc
 - [RAK4631](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK4631/Overview/) WisBlock Core module
 - [RAK5005-O](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK5005-O/Overview/) WisBlock Base board
 - [RAK12500](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK12500/Overview/) WisBlock Sensor GNSS module
+- alternative [RAK1910](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK1910/Overview/) WisBlock Sensor GNSS module
 - [RAK1904](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK1904/Overview/) WisBlock Sensor acceleration module
-- [RAK1906](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK1906/Overview/) WisBlock Sensor environment module
+- optional [RAK1906](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK1906/Overview/) WisBlock Sensor environment module
 
 ## Power consumption
 The application does switch off the GPS module and the MCU and LoRa transceiver go into sleep mode between measurement cycles to save power. I could measure a sleep current of 40uA of the whole system. 
@@ -34,8 +36,10 @@ The application does switch off the GPS module and the MCU and LoRa transceiver 
 - [Patch to use RAK4631 with PlatformIO](https://github.com/RAKWireless/WisBlock/blob/master/PlatformIO/RAK4630/README.md)
 - [SX126x-Arduino LoRaWAN library](https://github.com/beegee-tokyo/SX126x-Arduino)
 - [SparkFun u-blox GNSS Arduino Library](https://platformio.org/lib/show/11715/SparkFun%20u-blox%20GNSS%20Arduino%20Library)
+- [TinyGPSPlus](https://registry.platformio.org/libraries/mikalhart/TinyGPSPlus)
 - [Adafruit BME680 Library](https://platformio.org/lib/show/1922/Adafruit%20BME680%20Library)
 - [WisBlock API](https://github.com/beegee-tokyo/WisBlock-API)
+- [CayenneLPP](https://registry.platformio.org/libraries/sabas1080/CayenneLPP)
 
 ## _REMARK_
 The libraries are all listed in the **`platformio.ini`** and are automatically installed when the project is compiled.
@@ -116,42 +120,66 @@ Keep in mind that parameters that are changed from with this method can be chang
 ----
 
 # Packet data format
-The packet data is not compatible with the RAK5205/RAK7205. It is based on the Cayenne LPP packet format, which makes it very easey to decode, because most LoRaWAN server and Integrations support this format already. The data format is like:
-```
-	uint8_t data_flag1 = 0x01;	// 1 Cayenne LPP channel
-	uint8_t data_flag2 = 0x88;	// 2 Cayenne LPP location
-	uint8_t lat_1 = 0;			// 3
-	uint8_t lat_2 = 0;			// 4
-	uint8_t lat_3 = 0;			// 5
-	uint8_t long_1 = 0;			// 6
-	uint8_t long_2 = 0;			// 7
-	uint8_t long_3 = 0;			// 8
-	uint8_t alt_1 = 0;			// 9
-	uint8_t alt_2 = 0;			// 10
-	uint8_t alt_3 = 0;			// 11
-	uint8_t data_flag3 = 0x02;	// 12 Cayenne LPP channel
-	uint8_t data_flag4 = 0x02;	// 13 Cayenne LPP analog value
-	uint8_t batt_1 = 0;			// 14
-	uint8_t batt_2 = 0;			// 15
-	uint8_t data_flag5 = 0x03;	// 16 Cayenne LPP channel
-	uint8_t data_flag6 = 0x68;	// 17 Cayenne LPP humidity
-	uint8_t humid_1 = 0;		// 18
-	uint8_t data_flag7 = 0x04;	// 19 Cayenne LPP channel
-	uint8_t data_flag8 = 0x67;	// 20 Cayenne LPP temperature
-	uint8_t temp_1 = 0;			// 21
-	uint8_t temp_2 = 0;			// 22
-	uint8_t data_flag9 = 0x05;	// 23 Cayenne LPP channel
-	uint8_t data_flag10 = 0x73; // 24 Cayenne LPP barometric pressure
-	uint8_t press_1 = 0;		// 25
-	uint8_t press_2 = 0;		// 26
-	uint8_t data_flag11 = 0x06; // 27 Cayenne LPP channel
-	uint8_t data_flag12 = 0x02; // 28 Cayenne LPP analog value
-	uint8_t gas_1 = 0;			// 29
-	uint8_t gas_2 = 0;			// 30
-```
+Three different data packet formats are available:
+1) Standard Cayenne LPP format as it is used by MyDevice. This format has a 4 digit precision for the GNSS location.     
+2) Extended Cayenne LPP format. This format has a 6 digit precision for the GNSS location and gives a better precision of the location. A special data decoder is required for this data format.
+Above two data formats include as well the battery level and (if available) the data from the BME680 environment sensor.    
+
+The different LPP channels are assigned like this:   
+
+| Data | Channel # | Channel ID | Length | Comment |
+| -- | -- | -- | -- | -- |
+| GNSS data | 1 | 136 | 9 bytes | 4 digit precision |
+| GNSS data | 1 | 137 | 11 bytes | 6 digit precision |
+| Battery value | 2 | 2 | 2 bytes | in volt |
+| Humidity | 3 | 104 | 1 bytes |  in %RH |
+| Temperature | 4 | 103 | 2 bytes | in °C |
+| Barmetric Pressure | 5 | 115 | 2 bytes | in hPa (mBar) |
+| Gas resistance | 6 | 2 | 2 bytes | in kOhm, can be used to calculate air quality index |
+
+
+3) Only location data formatted for the [Helium Mapper application](https://news.rakwireless.com/make-a-helium-mapper-with-the-wisblock/)    
+This data packet contains only raw data without any data markers.    
+**`4 byte latitude, 4 byte longitude, 2 byte altitude, 2 byte precision, 2 byte battery voltage`**
 
 ## _REMARK_
 This application uses the RAK1904 acceleration sensor only for detection of movement to trigger the sending of a location packet, so the data packet does not include the accelerometer part.
+
+# Change data format
+To switch between the three data modes, a custom AT command is implemented.    
+**`AT+GNSS`**
+
+Description: Switch between data packet formats
+
+This command allows the user to see the current data format or switch to another data format.
+
+| Command                       | Input Parameter | Return Value                                               | Return Code              |
+| ----------------------------- | --------------- | ---------------------------------------------------------- | ------------------------ |
+| AT+GNSS?                      | -               | `AT+GNSS: Get/Set the GNSS precision and format 0 = 4 digit, 1 = 6 digit, 2 = Helium Mapper` | `OK`                     |
+| AT+GNSS=?                   | -               | *0, 1 or 2*                                                | `OK`                     |
+| AT+GNSS=`<Input Parameter>` | *0, 1 or 2*     | -                                                          | `OK` or `AT_PARAM_ERROR` |
+
+**Examples**:
+
+```
+AT+GNSS?
+
+AT+GNSS: Get/Set the GNSS precision and format 0 = 4 digit, 1 = 6 digit, 2 = Helium Mapper    
+OK
+
+AT+GNSS=?
+
+AT+GNSS:GPS precision: 2
+OK
+
+AT+GNSS=0
+
+OK
+
+AT+GNSS=3
+
++CME ERROR:5
+```
 
 ----
 
