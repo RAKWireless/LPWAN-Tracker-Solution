@@ -147,11 +147,38 @@ void save_gps_settings(void)
  * @brief List of all available commands with short help and pointer to functions
  * 
  */
-atcmd_t g_user_at_cmd_list[] = {
+atcmd_t g_user_at_cmd_list_gps[] = {
 	/*|    CMD    |     AT+CMD?      |    AT+CMD=?    |  AT+CMD=value |  AT+CMD  |*/
 	// GNSS commands
 	{"+GNSS", "Get/Set the GNSS precision and format 0 = 4 digit, 1 = 6 digit, 2 = Helium Mapper", at_query_gnss, at_exec_gnss, NULL},
 };
 
 /** Number of user defined AT commands */
-uint8_t g_user_at_cmd_num = sizeof(g_user_at_cmd_list) / sizeof(atcmd_t);
+uint8_t g_user_at_cmd_num = 0;
+
+/** Pointer to the combined user AT command structure */
+atcmd_t *g_user_at_cmd_list;
+
+/**
+ * @brief Initialize the user defined AT command list
+ *
+ */
+void init_user_at(void)
+{
+	uint16_t index_next_cmds = 0;
+	uint16_t required_structure_size = sizeof(g_user_at_cmd_list_gps);
+	MYLOG("USR_AT", "Structure size %d GNSS", required_structure_size);
+
+	// Reserve memory for the structure
+	g_user_at_cmd_list = (atcmd_t *)malloc(required_structure_size);
+
+	// Add AT commands to structure
+	MYLOG("USR_AT", "Adding GNSS user AT commands");
+	g_user_at_cmd_num += sizeof(g_user_at_cmd_list_gps) / sizeof(atcmd_t);
+	memcpy((void *)&g_user_at_cmd_list[index_next_cmds], (void *)g_user_at_cmd_list_gps, sizeof(g_user_at_cmd_list_gps));
+	index_next_cmds += sizeof(g_user_at_cmd_list_gps) / sizeof(atcmd_t);
+	MYLOG("USR_AT", "Index after adding GNSS %d", index_next_cmds);
+}
+
+// /** Number of user defined AT commands */
+// uint8_t g_user_at_cmd_num = sizeof(g_user_at_cmd_list) / sizeof(atcmd_t);

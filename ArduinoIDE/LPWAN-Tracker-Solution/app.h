@@ -120,6 +120,8 @@ extern bool g_is_helium;
 void read_gps_settings(void);
 void save_gps_settings(void);
 
+void init_user_at(void);
+
 /** Battery level uinion */
 union batt_s
 {

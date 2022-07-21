@@ -116,6 +116,9 @@ bool init_app(void)
 	AT_PRINTF("============================\n");
 	at_settings();
 
+	// Add User AT commands
+	init_user_at();
+
 	pinMode(WB_IO2, OUTPUT);
 	digitalWrite(WB_IO2, HIGH);
 
@@ -274,16 +277,14 @@ void app_event_handler(void)
 		{
 			// Battery is very low, change send time to 1 hour to protect battery
 			low_batt_protection = true;						   // Set low_batt_protection active
-			g_task_wakeup_timer.setPeriod(1 * 60 * 60 * 1000); // Set send time to one hour
-			g_task_wakeup_timer.reset();
+			api_timer_restart(1*60*60*1000); // Set send time to one hour
 			MYLOG("APP", "Battery protection activated");
 		}
 		else if ((batt_level.batt16 > 410) && low_batt_protection)
 		{
 			// Battery is higher than 4V, change send time back to original setting
 			low_batt_protection = false;
-			g_task_wakeup_timer.setPeriod(g_lorawan_settings.send_repeat_time);
-			g_task_wakeup_timer.reset();
+			api_timer_restart(g_lorawan_settings.send_repeat_time); // Set send time to original setting
 			MYLOG("APP", "Battery protection deactivated");
 		}
 
@@ -368,7 +369,7 @@ void app_event_handler(void)
 		// Reset the standard timer
 		if (g_lorawan_settings.send_repeat_time != 0)
 		{
-			g_task_wakeup_timer.reset();
+			api_timer_restart(g_lorawan_settings.send_repeat_time);
 		}
 	}
 

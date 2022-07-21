@@ -1,14 +1,14 @@
 /**
  * @file app.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
- * @brief Application specific functions. Mandatory to have init_app(), 
+ * @brief Application specific functions. Mandatory to have init_app(),
  *        app_event_handler(), ble_data_handler(), lora_data_handler()
  *        and lora_tx_finished()
  * @version 0.3
  * @date 2022-01-29
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
 #include "app.h"
@@ -57,7 +57,7 @@ bool has_env_sensor = false;
 
 /**
  * @brief Application specific setup functions
- * 
+ *
  */
 void setup_app(void)
 {
@@ -67,7 +67,7 @@ void setup_app(void)
 
 /**
  * @brief Application specific initializations
- * 
+ *
  * @return true Initialization success
  * @return false Initialization failure
  */
@@ -115,6 +115,9 @@ bool init_app(void)
 	AT_PRINTF("LoRa(R) is a registered trademark or service mark of Semtech Corporation or its affiliates.\nLoRaWAN(R) is a licensed mark.\n");
 	AT_PRINTF("============================\n");
 	at_settings();
+
+	// Add User AT commands
+	init_user_at();
 
 	pinMode(WB_IO2, OUTPUT);
 	digitalWrite(WB_IO2, HIGH);
@@ -273,17 +276,15 @@ void app_event_handler(void)
 		if (batt_level.batt16 < 290)
 		{
 			// Battery is very low, change send time to 1 hour to protect battery
-			low_batt_protection = true;						   // Set low_batt_protection active
-			g_task_wakeup_timer.setPeriod(1 * 60 * 60 * 1000); // Set send time to one hour
-			g_task_wakeup_timer.reset();
+			low_batt_protection = true;			   // Set low_batt_protection active
+			api_timer_restart(1 * 60 * 60 * 1000); // Set send time to one hour
 			MYLOG("APP", "Battery protection activated");
 		}
 		else if ((batt_level.batt16 > 410) && low_batt_protection)
 		{
 			// Battery is higher than 4V, change send time back to original setting
 			low_batt_protection = false;
-			g_task_wakeup_timer.setPeriod(g_lorawan_settings.send_repeat_time);
-			g_task_wakeup_timer.reset();
+			api_timer_restart(g_lorawan_settings.send_repeat_time); // Set send time to original setting
 			MYLOG("APP", "Battery protection deactivated");
 		}
 
@@ -368,7 +369,7 @@ void app_event_handler(void)
 		// Reset the standard timer
 		if (g_lorawan_settings.send_repeat_time != 0)
 		{
-			g_task_wakeup_timer.reset();
+			api_timer_restart(g_lorawan_settings.send_repeat_time);
 		}
 	}
 
@@ -458,7 +459,7 @@ void app_event_handler(void)
 
 /**
  * @brief Handle BLE UART data
- * 
+ *
  */
 void ble_data_handler(void)
 {
@@ -483,7 +484,7 @@ void ble_data_handler(void)
 
 /**
  * @brief Handle received LoRa Data
- * 
+ *
  */
 void lora_data_handler(void)
 {
@@ -596,8 +597,8 @@ void lora_data_handler(void)
 /**
  * @brief Timer function used to avoid sending packages too often.
  * 			Delays the next package by 10 seconds
- * 
- * @param unused 
+ *
+ * @param unused
  * 			Timer handle, not used
  */
 void send_delayed(TimerHandle_t unused)

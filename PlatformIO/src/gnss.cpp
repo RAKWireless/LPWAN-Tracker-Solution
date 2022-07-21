@@ -348,7 +348,7 @@ bool poll_gnss(void)
 		// {
 		// 	if (g_gps_prec_6)
 		// 	{
-		// 		// Save extended precision, not Cayenne LPP compatible
+		// // Save extended precision, not Cayenne LPP compatible
 		// 		datapacket.addGPS_6(LPP_CHANNEL_GPS, latitude, longitude, altitude);
 		// 	}
 		// 	else

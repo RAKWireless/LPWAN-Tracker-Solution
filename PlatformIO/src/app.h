@@ -26,7 +26,7 @@
 #endif
 // ; patch version increase on bugfix, no affect on API
 #ifndef SW_VERSION_3
-#define SW_VERSION_3 4
+#define SW_VERSION_3 5
 #endif
 
 #include <Arduino.h>
@@ -119,6 +119,8 @@ extern bool g_is_helium;
 
 void read_gps_settings(void);
 void save_gps_settings(void);
+
+void init_user_at(void);
 
 /** Battery level uinion */
 union batt_s
