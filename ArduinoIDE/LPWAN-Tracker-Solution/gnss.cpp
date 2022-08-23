@@ -4,9 +4,9 @@
  * @brief GNSS functions and task
  * @version 0.3
  * @date 2022-01-29
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 #include "app.h"
 
@@ -34,9 +34,17 @@ bool i2c_gnss = false;
 /** The GPS module to use */
 uint8_t gnss_option = 0;
 
+/** Switcher between different fake locations */
+uint8_t fake_gnss_selector = 0;
+
+int64_t fake_latitude[] = {144213730, 414861950, -80533010, -274789700};
+int64_t fake_longitude[] = {1210069140, -816814860, -349049060, 1530410440};
+
+// PH 144213730, 1210069140, 35.000 // Ohio 414861950, -816814860 // Recife -80533010, -349049060 // Brisbane -274789700, 1530410440
+
 /**
  * @brief Initialize GNSS module
- * 
+ *
  * @return true if GNSS module was found
  * @return false if no GNSS module was found
  */
@@ -62,15 +70,15 @@ bool init_gnss(void)
 			MYLOG("GNSS", "UBLOX found on I2C");
 			i2c_gnss = true;
 			gnss_found = true;
-			my_gnss.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
+			my_gnss.setI2COutput(COM_TYPE_UBX); // Set the I2C port to output UBX only (turn off NMEA noise)
 			gnss_option = RAK12500_GNSS;
 		}
 
 		if (!i2c_gnss)
 		{
 			uint8_t retry = 0;
-			//Assume that the U-Blox GNSS is running at 9600 baud (the default) or at 38400 baud.
-			//Loop until we're in sync and then ensure it's at 38400 baud.
+			// Assume that the U-Blox GNSS is running at 9600 baud (the default) or at 38400 baud.
+			// Loop until we're in sync and then ensure it's at 38400 baud.
 			do
 			{
 				MYLOG("GNSS", "GNSS: trying 38400 baud");
@@ -80,7 +88,7 @@ bool init_gnss(void)
 				if (my_gnss.begin(Serial1) == true)
 				{
 					MYLOG("GNSS", "UBLOX found on Serial1 with 38400");
-					my_gnss.setUART1Output(COM_TYPE_UBX); //Set the UART port to output UBX only
+					my_gnss.setUART1Output(COM_TYPE_UBX); // Set the UART port to output UBX only
 					gnss_found = true;
 
 					gnss_option = RAK12500_GNSS;
@@ -100,7 +108,7 @@ bool init_gnss(void)
 				else
 				{
 					my_gnss.factoryReset();
-					delay(2000); //Wait a bit before trying again to limit the Serial output
+					delay(2000); // Wait a bit before trying again to limit the Serial output
 				}
 				retry++;
 				if (retry == 3)
@@ -112,7 +120,7 @@ bool init_gnss(void)
 
 		if (gnss_found)
 		{
-			my_gnss.saveConfiguration(); //Save the current settings to flash and BBR
+			my_gnss.saveConfiguration(); // Save the current settings to flash and BBR
 
 			my_gnss.setMeasurementRate(500);
 			return true;
@@ -135,13 +143,13 @@ bool init_gnss(void)
 			if (i2c_gnss)
 			{
 				my_gnss.begin();
-				my_gnss.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
+				my_gnss.setI2COutput(COM_TYPE_UBX); // Set the I2C port to output UBX only (turn off NMEA noise)
 			}
 			else
 			{
 				Serial1.begin(38400);
 				my_gnss.begin(Serial1);
-				my_gnss.setUART1Output(COM_TYPE_UBX); //Set the UART port to output UBX only
+				my_gnss.setUART1Output(COM_TYPE_UBX); // Set the UART port to output UBX only
 			}
 			my_gnss.setMeasurementRate(500);
 		}
@@ -157,7 +165,7 @@ bool init_gnss(void)
 
 /**
  * @brief Check GNSS module for position
- * 
+ *
  * @return true Valid position found
  * @return false No valid position
  */
@@ -194,6 +202,9 @@ bool poll_gnss(void)
 		check_limit = 90000;
 	}
 
+#if FAKE_GPS > 0
+	check_limit = 1000;
+#endif
 	MYLOG("GNSS", "GNSS timeout %ld", (long int)check_limit);
 
 	MYLOG("GNSS", "Using %s", gnss_option == RAK12500_GNSS ? "RAK12500" : "RAK1910");
@@ -335,35 +346,40 @@ bool poll_gnss(void)
 	else
 	{
 		// No location found
-
+#if FAKE_GPS > 0
 		/// \todo Enable below to get a fake GPS position if no location fix could be obtained
-		// 	MYLOG("GNSS", "Faking GPS");
-		// 	// 14.4213730, 121.0069140, 35.000
-		// 	latitude = 144213730;
-		// 	longitude = 1210069140;
-		// 	altitude = 35000;
-		//  accuracy = 100;
+		// PH 144213730, 1210069140, 35.000 // Ohio 414861950, -816814860 // Recife -80533010, -349049060 // Brisbane -274789700, 1530410440
+		latitude = fake_latitude[fake_gnss_selector];
+		longitude = fake_longitude[fake_gnss_selector];
+		fake_gnss_selector++;
+		if (fake_gnss_selector == 4)
+		{
+			fake_gnss_selector = 0;
+		}
+		altitude = 35000;
+		accuracy = 100;
 
-		// if (!g_is_helium)
-		// {
-		// 	if (g_gps_prec_6)
-		// 	{
-		// // Save extended precision, not Cayenne LPP compatible
-		// 		datapacket.addGPS_6(LPP_CHANNEL_GPS, latitude, longitude, altitude);
-		// 	}
-		// 	else
-		// 	{
-		// 		// Save default Cayenne LPP precision
-		// 		datapacket.addGPS_4(LPP_CHANNEL_GPS, latitude, longitude, altitude);
-		// 	}
-		// }
-		// else
-		// {
-		// 	// Save default Cayenne LPP precision
-		// 	datapacket.addGPS_H(latitude, longitude, altitude, accuracy, read_batt());
-		// }
-		// last_read_ok = true;
-		// return true;
+		if (!g_is_helium)
+		{
+			if (g_gps_prec_6)
+			{
+				// Save extended precision, not Cayenne LPP compatible
+				g_data_packet.addGNSS_6(LPP_CHANNEL_GPS, latitude, longitude, altitude);
+			}
+			else
+			{
+				// Save default Cayenne LPP precision
+				g_data_packet.addGNSS_4(LPP_CHANNEL_GPS, latitude, longitude, altitude);
+			}
+		}
+		else
+		{
+			// Save default Cayenne LPP precision
+			g_data_packet.addGNSS_H(latitude, longitude, altitude, accuracy, read_batt());
+		}
+		last_read_ok = true;
+		return true;
+#endif
 	}
 
 	MYLOG("GNSS", "No valid location found");
@@ -382,7 +398,7 @@ bool poll_gnss(void)
 
 /**
  * @brief Task to read from GNSS module without stopping the loop
- * 
+ *
  * @param pvParameters unused
  */
 void gnss_task(void *pvParameters)

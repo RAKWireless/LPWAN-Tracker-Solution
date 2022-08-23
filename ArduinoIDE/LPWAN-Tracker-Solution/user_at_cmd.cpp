@@ -4,9 +4,9 @@
  * @brief Handle user defined AT commands
  * @version 0.3
  * @date 2022-01-29
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
 #include "app.h"
@@ -32,7 +32,7 @@ File gps_file(InternalFS);
 
 /**
  * @brief Returns in g_at_query_buf the current settings for the GNSS precision
- * 
+ *
  * @return int always 0
  */
 static int at_query_gnss()
@@ -50,7 +50,7 @@ static int at_query_gnss()
 
 /**
  * @brief Command to set the GNSS precision
- * 
+ *
  * @param str Either '0' or '1'
  *  '0' sets the precission to 4 digits
  *  '1' sets the precission to 6 digits
@@ -85,7 +85,7 @@ static int at_exec_gnss(char *str)
 
 /**
  * @brief Read saved setting for precision and packet format
- * 
+ *
  */
 void read_gps_settings(void)
 {
@@ -113,7 +113,7 @@ void read_gps_settings(void)
 
 /**
  * @brief Save the GPS settings
- * 
+ *
  */
 void save_gps_settings(void)
 {
@@ -145,7 +145,7 @@ void save_gps_settings(void)
 
 /**
  * @brief List of all available commands with short help and pointer to functions
- * 
+ *
  */
 atcmd_t g_user_at_cmd_list_gps[] = {
 	/*|    CMD    |     AT+CMD?      |    AT+CMD=?    |  AT+CMD=value |  AT+CMD  |*/

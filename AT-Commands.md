@@ -65,7 +65,8 @@ LoRa® is a registered trademark or service mark of Semtech Corporation or its a
 * [AT+P2P](#atp2p) Set/Get LoRa® P2P Configuration
 * [AT+PSEND](#atpsend) Send LoRa® P2P packet
 * [AT+PRECV](#atprecv) Set LoRa® P2P RX mode
-
+### GNSS specific commands
+* [AT+GNSS](#atgnss) Set GNSS output format
 
 ### [Appendix](#appendix-1)
   * [Appendix I Data Rate by Region](#appendix-i-data-rate-by-region)    
@@ -1376,6 +1377,36 @@ _**REMARK**_
 - If the value is set to 65534, the device will continuously listen to P2P LoRa TX packets without any timeout. This is the same as setting the device in RX mode.
 - If the value is set to 65535, the device will listen to P2P TX packets without a timeout. But it will stop listening once a P2P LoRa packet is received to save power.
 - If the value is 0, the device will stop listening to P2P TX packets. The device is in TX mode.
+
+[Back](#content)    
+
+----
+## AT+GNSS
+
+Description: Set GNSS packet format
+
+This command is used to switch the format of the LoRaWAN packet between three options.     
+0 => 4 digit standard CayenneLPP location format (smaller packet format)    
+1 => 6 digit extended CayenneLPP location format (higher location precision, requires custom payload decoders)
+2 => [Helium Mapper](https://news.rakwireless.com/make-a-helium-mapper-with-the-wisblock/) location format (for [Helium Hotspot Mapper Application](mappers.helium.com)) 
+
+| Command                    | Input Parameter | Return Value                | Return Code |
+| -------------------------- | --------------- | --------------------------- | ----------- |
+| AT+GNSS?                    | -               | `Get/Set the GNSS precision and format 0 = 4 digit, 1 = 6 digit, 2 = Helium Mapper` | `OK`        |
+| AT+GNSS=?                    | -               | *`0, 1 or 2 depending on the current format` | `OK`        |
+| AT+GNSS=`<Input Parameter>`   | *< *`0, 1 or 2`* >*   | -                       | `OK`        |
+
+**Examples**:
+
+```
+AT+GNSS=0
+
+OK
+```
+_**REMARK**_
+- If **`0`**, the payload can be decoded with standard CayenneLPP payload decoders that are available in most LoRaWAN servers, Helium Console and many integrations. This format works with Cayenne MyDevices.
+- If **`1`**, the payload requires a custom payload decoder. Decoders can be found in the [decoders folder](./decoders). This format does _**NOT**_ work with Cayenne MyDevices.
+- If **`2`**, the payload is only working with the [Helium Hotspot Mapper Application](mappers.helium.com). More details can be found in the [Make a Helium Mapper](https://news.rakwireless.com/make-a-helium-mapper-with-the-wisblock/) article.    
 
 [Back](#content)    
 

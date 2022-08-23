@@ -105,12 +105,12 @@ extern bool has_env_sensor;
 // LoRaWan functions
 #include "wisblock_cayenne.h"
 extern WisCayenne g_data_packet;
-#define LPP_CHANNEL_GPS 1
-#define LPP_CHANNEL_BATT 2
-#define LPP_CHANNEL_HUMID 3
-#define LPP_CHANNEL_TEMP 4
-#define LPP_CHANNEL_PRESS 5
-#define LPP_CHANNEL_GAS 6
+#define LPP_CHANNEL_GPS 10
+#define LPP_CHANNEL_BATT 1
+#define LPP_CHANNEL_HUMID 6
+#define LPP_CHANNEL_TEMP 7
+#define LPP_CHANNEL_PRESS 8
+#define LPP_CHANNEL_GAS 9
 
 extern uint8_t g_last_fport;
 

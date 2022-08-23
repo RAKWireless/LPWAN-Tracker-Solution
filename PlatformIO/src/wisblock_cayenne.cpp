@@ -19,8 +19,8 @@ union batt_s
 /** Latitude/Longitude value union */
 union latLong_s
 {
-	uint32_t val32;
-	uint8_t val8[4];
+	int32_t val32;
+	int8_t val8[4];
 };
 
 /**
@@ -32,7 +32,7 @@ union latLong_s
  * @param altitude Altitude as read from the GNSS receiver
  * @return uint8_t bytes added to the data packet
  */
-uint8_t WisCayenne::addGNSS_4(uint8_t channel, uint32_t latitude, uint32_t longitude, uint32_t altitude)
+uint8_t WisCayenne::addGNSS_4(uint8_t channel, int32_t latitude, int32_t longitude, int32_t altitude)
 {
 	// check buffer overflow
 	if ((_cursor + LPP_GPS4_SIZE + 2) > _maxsize)
@@ -75,7 +75,7 @@ uint8_t WisCayenne::addGNSS_4(uint8_t channel, uint32_t latitude, uint32_t longi
  * @param altitude Altitude as read from the GNSS receiver
  * @return uint8_t bytes added to the data packet
  */
-uint8_t WisCayenne::addGNSS_6(uint8_t channel, uint32_t latitude, uint32_t longitude, uint32_t altitude)
+uint8_t WisCayenne::addGNSS_6(uint8_t channel, int32_t latitude, int32_t longitude, int32_t altitude)
 {
 	// check buffer overflow
 	if ((_cursor + LPP_GPS6_SIZE + 2) > _maxsize)
@@ -120,7 +120,7 @@ uint8_t WisCayenne::addGNSS_6(uint8_t channel, uint32_t latitude, uint32_t longi
  * @return uint8_t bytes added to the data packet
  */
 
-uint8_t WisCayenne::addGNSS_H(uint32_t latitude, uint32_t longitude, uint16_t altitude, uint16_t accuracy, uint16_t battery)
+uint8_t WisCayenne::addGNSS_H(int32_t latitude, int32_t longitude, int16_t altitude, uint16_t accuracy, uint16_t battery)
 {
 	// check buffer overflow
 	if ((_cursor + LPP_GPSH_SIZE) > _maxsize)

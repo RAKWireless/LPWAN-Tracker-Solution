@@ -1,14 +1,14 @@
 /**
  * @file app.cpp
  * @author Bernd Giesecke (bernd.giesecke@rakwireless.com)
- * @brief Application specific functions. Mandatory to have init_app(), 
+ * @brief Application specific functions. Mandatory to have init_app(),
  *        app_event_handler(), ble_data_handler(), lora_data_handler()
  *        and lora_tx_finished()
  * @version 0.3
  * @date 2022-01-29
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
 #include "app.h"
@@ -57,7 +57,7 @@ bool has_env_sensor = false;
 
 /**
  * @brief Application specific setup functions
- * 
+ *
  */
 void setup_app(void)
 {
@@ -67,7 +67,7 @@ void setup_app(void)
 
 /**
  * @brief Application specific initializations
- * 
+ *
  * @return true Initialization success
  * @return false Initialization failure
  */
@@ -276,8 +276,8 @@ void app_event_handler(void)
 		if (batt_level.batt16 < 290)
 		{
 			// Battery is very low, change send time to 1 hour to protect battery
-			low_batt_protection = true;						   // Set low_batt_protection active
-			api_timer_restart(1*60*60*1000); // Set send time to one hour
+			low_batt_protection = true;			   // Set low_batt_protection active
+			api_timer_restart(1 * 60 * 60 * 1000); // Set send time to one hour
 			MYLOG("APP", "Battery protection activated");
 		}
 		else if ((batt_level.batt16 > 410) && low_batt_protection)
@@ -459,7 +459,7 @@ void app_event_handler(void)
 
 /**
  * @brief Handle BLE UART data
- * 
+ *
  */
 void ble_data_handler(void)
 {
@@ -484,7 +484,7 @@ void ble_data_handler(void)
 
 /**
  * @brief Handle received LoRa Data
- * 
+ *
  */
 void lora_data_handler(void)
 {
@@ -597,8 +597,8 @@ void lora_data_handler(void)
 /**
  * @brief Timer function used to avoid sending packages too often.
  * 			Delays the next package by 10 seconds
- * 
- * @param unused 
+ *
+ * @param unused
  * 			Timer handle, not used
  */
 void send_delayed(TimerHandle_t unused)
