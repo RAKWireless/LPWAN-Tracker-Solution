@@ -49,11 +49,17 @@ bool g_gps_prec_6 = true;
 /** Switch between Cayenne LPP and Helium Mapper data packet */
 bool g_is_helium = false;
 
-/** Packet buffer */
-WisCayenne g_data_packet(255);
-
+/** Flag if GNSS module was found */
+bool gnss_ok = true;
+/** Flag if ACC module was found */
+bool acc_ok = true;
 /** Flag if environment sensor was found */
 bool has_env_sensor = false;
+/** Flag for battery protection enabled */
+bool battery_check_enabled = false;
+
+/** Packet buffer */
+WisCayenne g_data_packet(255);
 
 /**
  * @brief Application specific setup functions
@@ -73,9 +79,6 @@ void setup_app(void)
  */
 bool init_app(void)
 {
-	bool gnss_ok = true;
-	bool acc_ok = true;
-
 	MYLOG("APP", "init_app");
 
 	api_set_version(SW_VERSION_1, SW_VERSION_2, SW_VERSION_3);
@@ -272,22 +275,24 @@ void app_event_handler(void)
 			g_data_packet.addVoltage(LPP_CHANNEL_BATT, read_batt() / 1000);
 		}
 
-		// Protection against battery drain
-		if (batt_level.batt16 < 290)
+		// Protection against battery drain if battery check is enabled
+		if (battery_check_enabled)
 		{
-			// Battery is very low, change send time to 1 hour to protect battery
-			low_batt_protection = true;			   // Set low_batt_protection active
-			api_timer_restart(1 * 60 * 60 * 1000); // Set send time to one hour
-			MYLOG("APP", "Battery protection activated");
-		}
-		else if ((batt_level.batt16 > 410) && low_batt_protection)
-		{
-			// Battery is higher than 4V, change send time back to original setting
-			low_batt_protection = false;
-			api_timer_restart(g_lorawan_settings.send_repeat_time); // Set send time to original setting
-			MYLOG("APP", "Battery protection deactivated");
-		}
-
+			if (batt_level.batt16 < 290)
+			{
+				// Battery is very low, change send time to 1 hour to protect battery
+				low_batt_protection = true;			   // Set low_batt_protection active
+				api_timer_restart(1 * 60 * 60 * 1000); // Set send time to one hour
+				MYLOG("APP", "Battery protection activated");
+			}
+			else if ((batt_level.batt16 > 410) && low_batt_protection)
+			{
+				// Battery is higher than 4V, change send time back to original setting
+				low_batt_protection = false;
+				api_timer_restart(g_lorawan_settings.send_repeat_time); // Set send time to original setting
+				MYLOG("APP", "Battery protection deactivated");
+			}
+}
 		if (!g_is_helium)
 		{
 			if (low_batt_protection || (gnss_option == NO_GNSS_INIT))

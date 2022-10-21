@@ -79,6 +79,7 @@ void lora_data_handler(void);
 bool init_acc(void);
 void clear_acc_int(void);
 void read_acc(void);
+extern bool acc_ok;
 
 // GNSS functions
 #define NO_GNSS_INIT 0
@@ -93,6 +94,7 @@ extern SemaphoreHandle_t g_gnss_sem;
 extern TaskHandle_t gnss_task_handle;
 extern volatile bool last_read_ok;
 extern uint8_t gnss_option;
+extern bool gnss_ok;
 
 /** Temperature + Humidity stuff */
 #include <Adafruit_Sensor.h>
@@ -121,6 +123,8 @@ void read_gps_settings(void);
 void save_gps_settings(void);
 
 void init_user_at(void);
+
+extern bool battery_check_enabled;
 
 /** Battery level uinion */
 union batt_s
