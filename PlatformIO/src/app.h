@@ -22,11 +22,11 @@
 #endif
 // ; minor version increase on API change / backward compatible
 #ifndef SW_VERSION_2
-#define SW_VERSION_2 0
+#define SW_VERSION_2 1
 #endif
 // ; patch version increase on bugfix, no affect on API
 #ifndef SW_VERSION_3
-#define SW_VERSION_3 5
+#define SW_VERSION_3 2
 #endif
 
 #include <Arduino.h>

@@ -22,11 +22,11 @@
 #endif
 // ; minor version increase on API change / backward compatible
 #ifndef SW_VERSION_2
-#define SW_VERSION_2 0
+#define SW_VERSION_2 1
 #endif
 // ; patch version increase on bugfix, no affect on API
 #ifndef SW_VERSION_3
-#define SW_VERSION_3 5
+#define SW_VERSION_3 2
 #endif
 
 #include <Arduino.h>
@@ -105,7 +105,7 @@ void start_bme(void);
 extern bool has_env_sensor;
 
 // LoRaWan functions
-#include "wisblock_cayenne.h"
+#include <wisblock_cayenne.h>
 extern WisCayenne g_data_packet;
 #define LPP_CHANNEL_GPS 10
 #define LPP_CHANNEL_BATT 1
