@@ -1,1 +1,1 @@
-./adafruit-nrfutil.exe --verbose dfu serial --package WisBlock_LPWAN_Tracker_V1.1.0_2022.07.21.14.09.57.zip --port COM14 -b 115200 --singlebank --touch 1200
+./adafruit-nrfutil.exe --verbose dfu serial --package WisBlock_LPWAN_Tracker_V1.1.2_2023.01.17.13.24.52.zip --port COM14 -b 115200 --singlebank --touch 1200
