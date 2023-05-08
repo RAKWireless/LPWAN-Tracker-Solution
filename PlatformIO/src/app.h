@@ -34,7 +34,7 @@
 #include <Wire.h>
 
 /** Include the SX126x-API */
-#include <WisBlock-API.h> // Click to install library: http://librarymanager/All#WisBlock-API
+#include <WisBlock-API-V2.h> // Click to install library: http://librarymanager/All#WisBlock-API-V2
 
 // Debug output set to 0 to disable app debug output
 #ifndef MY_DEBUG
@@ -105,7 +105,7 @@ void start_bme(void);
 extern bool has_env_sensor;
 
 // LoRaWan functions
-#include "wisblock_cayenne.h"
+#include <wisblock_cayenne.h>
 extern WisCayenne g_data_packet;
 #define LPP_CHANNEL_GPS 10
 #define LPP_CHANNEL_BATT 1

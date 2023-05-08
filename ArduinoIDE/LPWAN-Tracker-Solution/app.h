@@ -34,11 +34,11 @@
 #include <Wire.h>
 
 /** Include the SX126x-API */
-#include <WisBlock-API.h> // Click to install library: http://librarymanager/All#WisBlock-API
+#include <WisBlock-API-V2.h> // Click to install library: http://librarymanager/All#WisBlock-API-V2
 
 // Debug output set to 0 to disable app debug output
 #ifndef MY_DEBUG
-#define MY_DEBUG 0
+#define MY_DEBUG 1
 #endif
 
 #if MY_DEBUG > 0

@@ -85,7 +85,7 @@ int at_query_modules(void)
 atcmd_t g_user_at_cmd_list_modules[] = {
 	/*|    CMD    |     AT+CMD?      |    AT+CMD=?    |  AT+CMD=value |  AT+CMD  |*/
 	// Module commands
-	{"+MOD", "List all connected I2C devices", at_query_modules, NULL, at_query_modules},
+	{"+MOD", "List all connected I2C devices", at_query_modules, NULL, at_query_modules, "RW"},
 };
 
 /*****************************************
@@ -212,7 +212,7 @@ void save_gps_settings(void)
 atcmd_t g_user_at_cmd_list_gps[] = {
 	/*|    CMD    |     AT+CMD?      |    AT+CMD=?    |  AT+CMD=value |  AT+CMD  |*/
 	// GNSS commands
-	{"+GNSS", "Get/Set the GNSS precision and format 0 = 4 digit, 1 = 6 digit, 2 = Helium Mapper", at_query_gnss, at_exec_gnss, NULL},
+	{"+GNSS", "Get/Set the GNSS precision and format 0 = 4 digit, 1 = 6 digit, 2 = Helium Mapper", at_query_gnss, at_exec_gnss, NULL, "RW"},
 };
 
 /*****************************************
@@ -314,7 +314,7 @@ void save_batt_settings(bool check_batt_enables)
 atcmd_t g_user_at_cmd_list_batt[] = {
 	/*|    CMD    |     AT+CMD?      |    AT+CMD=?    |  AT+CMD=value |  AT+CMD  |*/
 	// Battery check commands
-	{"+BATCHK", "Enable/Disable the battery charge check", at_query_batt_check, at_set_batt_check, at_query_batt_check},
+	{"+BATCHK", "Enable/Disable the battery charge check", at_query_batt_check, at_set_batt_check, at_query_batt_check, "RW"},
 };
 
 /** Number of user defined AT commands */
