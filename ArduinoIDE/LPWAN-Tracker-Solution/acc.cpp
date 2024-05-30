@@ -15,6 +15,12 @@ void acc_int_callback(void);
 /** The LIS3DH sensor */
 LIS3DH acc_sensor(I2C_MODE, 0x18);
 
+/** Flag if ACC values should be included in the payload */
+bool g_submit_acc = false;
+
+/** Flag if locations acquistion requires higher fix and more satellites */
+bool g_loc_high_prec = false;
+
 /**
  * @brief Initialize LIS3DH 3-axis 
  * acceleration sensor
@@ -112,13 +118,22 @@ bool init_acc(void)
  */
 void read_acc(void)
 {
-	int16_t acc_x = (int16_t)(acc_sensor.readFloatAccelX() * 1000.0);
-	int16_t acc_y = (int16_t)(acc_sensor.readFloatAccelY() * 1000.0);
-	int16_t acc_z = (int16_t)(acc_sensor.readFloatAccelZ() * 1000.0);
+	float acc_x_f = acc_sensor.readFloatAccelX();
+	float acc_y_f = acc_sensor.readFloatAccelY();
+	float acc_z_f = acc_sensor.readFloatAccelZ();
 
-	MYLOG("ACC", "X %.3f %.3f %d", acc_sensor.readFloatAccelX(), acc_sensor.readFloatAccelX() * 1000.0, acc_x);
-	MYLOG("ACC", "Y %.3f %.3f %d", acc_sensor.readFloatAccelY(), acc_sensor.readFloatAccelY() * 1000.0, acc_y);
-	MYLOG("ACC", "Z %.3f %.3f %d", acc_sensor.readFloatAccelZ(), acc_sensor.readFloatAccelZ() * 1000.0, acc_z);
+	int16_t acc_x = (int16_t)(acc_x_f * 1000.0);
+	int16_t acc_y = (int16_t)(acc_y_f * 1000.0);
+	int16_t acc_z = (int16_t)(acc_z_f * 1000.0);
+
+	MYLOG("ACC", "X %.3f %.3f %d", acc_x_f, acc_x_f * 1000.0, acc_x);
+	MYLOG("ACC", "Y %.3f %.3f %d", acc_y_f, acc_y_f * 1000.0, acc_y);
+	MYLOG("ACC", "Z %.3f %.3f %d", acc_z_f, acc_z_f * 1000.0, acc_z);
+
+	if (g_submit_acc)
+	{
+		g_data_packet.addAccelerometer(LPP_ACC, acc_x_f, acc_y_f, acc_z_f);
+	}
 }
 
 /**

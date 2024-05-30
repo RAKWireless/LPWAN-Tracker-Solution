@@ -14,11 +14,14 @@
 #include <InternalFileSystem.h>
 using namespace Adafruit_LittleFS_Namespace;
 
-void read_batt_settings(void);
-void save_batt_settings(bool check_batt_enables);
-
 /** Filename to save GPS precision setting */
 static const char gnss_name[] = "GNSS";
+
+/** Filename to save GPS location acquistion precision setting */
+static const char high_prec[] = "PREC";
+
+/** Filename to save ACC payload setting */
+static const char submit_acc[] = "ACC";
 
 /** Filename to save data format setting */
 static const char helium_format[] = "HELIUM";
@@ -89,7 +92,7 @@ atcmd_t g_user_at_cmd_list_modules[] = {
 };
 
 /*****************************************
- * GNSS AT commands
+ * GNSS & ACC AT commands
  *****************************************/
 
 /**
@@ -113,7 +116,7 @@ static int at_query_gnss()
 /**
  * @brief Command to set the GNSS precision
  *
- * @param str Either '0' or '1'
+ * @param str Either '0' or '1' or '2'
  *  '0' sets the precission to 4 digits
  *  '1' sets the precission to 6 digits
  *  '2' sets the dataformat to Helium Mapper
@@ -136,6 +139,96 @@ static int at_exec_gnss(char *str)
 	else if (str[0] == '2')
 	{
 		g_is_helium = true;
+		save_gps_settings();
+	}
+	else
+	{
+		return AT_ERRNO_PARA_VAL;
+	}
+	return 0;
+}
+
+/**
+ * @brief Returns in g_at_query_buf the current settings for the ACC payload
+ *
+ * @return int always 0
+ */
+static int at_query_acc()
+{
+	if (g_submit_acc)
+	{
+		snprintf(g_at_query_buf, ATQUERY_SIZE, "ACC values in payload");
+	}
+	else
+	{
+		snprintf(g_at_query_buf, ATQUERY_SIZE, "ACC values not in payload");
+	}
+	return 0;
+}
+
+/**
+ * @brief Command to set whether the ACC values are in the payload
+ *
+ * @param str Either '0' or '1'
+ *  '0' no ACC values in payload
+ *  '1' add ACC values in payload
+ * @return int 0 if the command was succesfull, 5 if the parameter was wrong
+ */
+static int at_exec_acc(char *str)
+{
+	if (str[0] == '0')
+	{
+		g_submit_acc = false;
+		save_gps_settings();
+	}
+	else if (str[0] == '1')
+	{
+		g_submit_acc = true;
+		save_gps_settings();
+	}
+	else
+	{
+		return AT_ERRNO_PARA_VAL;
+	}
+	return 0;
+}
+
+/**
+ * @brief Returns in g_at_query_buf the current settings for the location acquistion precision
+ *
+ * @return int always 0
+ */
+static int at_query_gnss_prec()
+{
+	if (g_loc_high_prec)
+	{
+		snprintf(g_at_query_buf, ATQUERY_SIZE, "Acquistion requirements high");
+	}
+	else
+	{
+		snprintf(g_at_query_buf, ATQUERY_SIZE, "Acquistion requirements low");
+	}
+	return 0;
+}
+
+/**
+ * @brief Command to set whether the location acquistion precision is high or low
+ *
+ * @param str Either '0' or '1'
+ *  '0' low acquistion requirement, only 3D fix required
+ *  '1' high acquistion requirement, GPS fix and at least 6 satellites required
+ * @return int 0 if the command was succesfull, 5 if the parameter was wrong
+ */
+static int at_exec_gnss_prec(char *str)
+{
+	if (str[0] == '0')
+	{
+		g_loc_high_prec = false;
+		save_gps_settings();
+	}
+	else if (str[0] == '1')
+	{
+		g_loc_high_prec = true;
 		save_gps_settings();
 	}
 	else
@@ -171,6 +264,26 @@ void read_gps_settings(void)
 		g_is_helium = false;
 		MYLOG("USR_AT", "File not found, set Cayenne LPP format");
 	}
+	if (InternalFS.exists(submit_acc))
+	{
+		g_submit_acc = false;
+		MYLOG("USR_AT", "File found, don't add ACC values to payload");
+	}
+	else
+	{
+		g_submit_acc = true;
+		MYLOG("USR_AT", "File not found, add ACC values to payload");
+	}
+	if (InternalFS.exists(high_prec))
+	{
+		g_loc_high_prec = false;
+		MYLOG("USR_AT", "File found, set low location acquistion precision");
+	}
+	else
+	{
+		g_loc_high_prec = true;
+		MYLOG("USR_AT", "File not found, set high location acquistion precision");
+	}
 }
 
 /**
@@ -179,6 +292,7 @@ void read_gps_settings(void)
  */
 void save_gps_settings(void)
 {
+	// Save precision for LPP format
 	if (g_gps_prec_6)
 	{
 		gps_file.open(gnss_name, FILE_O_WRITE);
@@ -191,6 +305,7 @@ void save_gps_settings(void)
 		InternalFS.remove(gnss_name);
 		MYLOG("USR_AT", "Remove File for high precision");
 	}
+	// Save flag if Helium Mapper format is selected
 	if (g_is_helium)
 	{
 		gps_file.open(helium_format, FILE_O_WRITE);
@@ -203,6 +318,30 @@ void save_gps_settings(void)
 		InternalFS.remove(helium_format);
 		MYLOG("USR_AT", "Remove File for Helium Mapper format");
 	}
+	if (g_submit_acc)
+	{
+		InternalFS.remove(submit_acc);
+		MYLOG("USR_AT", "Remove File for ACC payload include");
+	}
+	else
+	{
+		gps_file.open(submit_acc, FILE_O_WRITE);
+		gps_file.write("1");
+		gps_file.close();
+		MYLOG("USR_AT", "Created File for ACC payload include");
+	}
+	if (g_loc_high_prec)
+	{
+		InternalFS.remove(high_prec);
+		MYLOG("USR_AT", "Remove File for high location precision");
+	}
+	else
+	{
+		gps_file.open(high_prec, FILE_O_WRITE);
+		gps_file.write("1");
+		gps_file.close();
+		MYLOG("USR_AT", "Created File for high location precision");
+	}
 }
 
 /**
@@ -213,6 +352,8 @@ atcmd_t g_user_at_cmd_list_gps[] = {
 	/*|    CMD    |     AT+CMD?      |    AT+CMD=?    |  AT+CMD=value |  AT+CMD  |*/
 	// GNSS commands
 	{"+GNSS", "Get/Set the GNSS precision and format 0 = 4 digit, 1 = 6 digit, 2 = Helium Mapper", at_query_gnss, at_exec_gnss, NULL, "RW"},
+	{"+PREC", "Get/Set the GNSS acquisition precision 0 = only fix type 3D, 1 = fix type 3D and >= 6 satellites", at_query_gnss_prec, at_exec_gnss_prec, NULL, "RW"},
+	{"+ACC", "Get/Set whether ACC values are included in the payload", at_query_acc, at_exec_acc, NULL, "RW"},
 };
 
 /*****************************************

@@ -220,9 +220,7 @@ bool poll_gnss(void)
 			{
 				byte fix_type = my_gnss.getFixType(); // Get the fix type
 				char fix_type_str[32] = {0};
-				if (fix_type == 0)
-					sprintf(fix_type_str, "No Fix");
-				else if (fix_type == 1)
+				if (fix_type == 1)
 					sprintf(fix_type_str, "Dead reckoning");
 				else if (fix_type == 2)
 					sprintf(fix_type_str, "Fix type 2D");
@@ -232,9 +230,32 @@ bool poll_gnss(void)
 					sprintf(fix_type_str, "GNSS fix");
 				else if (fix_type == 5)
 					sprintf(fix_type_str, "Time fix");
+				else
+					sprintf(fix_type_str, "No Fix");
 
-				// if ((fix_type >= 3) && (my_gnss.getSIV() >= 5)) /** Fix type 3D and at least 5 satellites */
+				bool fix_sufficient = false;
+				uint8_t sat_num = my_gnss.getSIV();
+				accuracy = my_gnss.getHorizontalDOP();
+				if (g_loc_high_prec)
+				{
+					MYLOG("GNSS", "H Fixtype: %d %s", fix_type, fix_type_str);
+					MYLOG("GNSS", "H Sat: %d ", sat_num);
+					MYLOG("GNSS", "Acy: %d ", accuracy);
+					if ((fix_type >= 3) && (sat_num >= 6) && (accuracy <= 250)) /** Fix type GNSS and at least 6 satellites and HDOP better than 2.5 */
+					{
+						fix_sufficient = true;
+					}
+				}
+				else
+				{
+					MYLOG("GNSS", "L Fixtype: %d %s", fix_type, fix_type_str);
+					MYLOG("GNSS", "L Sat: %d ", sat_num);
 				if (fix_type >= 3) /** Fix type 3D */
+				{
+						fix_sufficient = true;
+					}
+				}
+				if (fix_sufficient) /** Fix type 3D */
 				{
 					last_read_ok = true;
 					latitude = my_gnss.getLatitude();
@@ -412,7 +433,6 @@ void gnss_task(void *pvParameters)
 		delay(100);
 	}
 
-	uint8_t busy_cnt = 0;
 	while (1)
 	{
 		if (xSemaphoreTake(g_gnss_sem, portMAX_DELAY) == pdTRUE)

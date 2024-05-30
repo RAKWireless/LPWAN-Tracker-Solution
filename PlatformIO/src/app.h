@@ -75,10 +75,11 @@ void lora_data_handler(void);
 
 /** Accelerometer stuff */
 #include <SparkFunLIS3DH.h>
-#define INT1_PIN WB_IO3
+#define INT1_PIN WB_IO5 // Slot D WB_IO3 // Slot C
 bool init_acc(void);
 void clear_acc_int(void);
 void read_acc(void);
+extern bool g_submit_acc;
 extern bool acc_ok;
 
 // GNSS functions
@@ -95,6 +96,7 @@ extern TaskHandle_t gnss_task_handle;
 extern volatile bool last_read_ok;
 extern uint8_t gnss_option;
 extern bool gnss_ok;
+extern bool g_loc_high_prec;
 
 /** Temperature + Humidity stuff */
 #include <Adafruit_Sensor.h>
@@ -107,12 +109,13 @@ extern bool has_env_sensor;
 // LoRaWan functions
 #include <wisblock_cayenne.h>
 extern WisCayenne g_data_packet;
-#define LPP_CHANNEL_GPS 10
-#define LPP_CHANNEL_BATT 1
-#define LPP_CHANNEL_HUMID 6
-#define LPP_CHANNEL_TEMP 7
-#define LPP_CHANNEL_PRESS 8
-#define LPP_CHANNEL_GAS 9
+// #define LPP_CHANNEL_GPS 10
+// #define LPP_CHANNEL_BATT 1
+// #define LPP_CHANNEL_HUMID 6
+// #define LPP_CHANNEL_TEMP 7
+// #define LPP_CHANNEL_PRESS 8
+// #define LPP_CHANNEL_GAS 9
+#define LPP_ACC 64
 
 extern uint8_t g_last_fport;
 
@@ -121,6 +124,8 @@ extern bool g_is_helium;
 
 void read_gps_settings(void);
 void save_gps_settings(void);
+void read_batt_settings(void);
+void save_batt_settings(bool check_batt_enables);
 
 void init_user_at(void);
 

@@ -180,6 +180,10 @@ bool init_app(void)
 	{
 		AT_PRINTF("   4 decimal digit precision\n");
 	}
+	if (g_loc_high_prec)
+	{
+		AT_PRINTF("   GNSS fix + 6 satellites required\n");
+	}
 	AT_PRINTF("Data format:\n");
 	if (g_is_helium)
 	{
@@ -188,6 +192,10 @@ bool init_app(void)
 	else
 	{
 		AT_PRINTF("   Cayenne LPP data format\n");
+	}
+	if (g_submit_acc)
+	{
+		AT_PRINTF("   Add ACC values to payload\n");
 	}
 	AT_PRINTF("============================\n");
 
@@ -292,7 +300,7 @@ void app_event_handler(void)
 				api_timer_restart(g_lorawan_settings.send_repeat_time); // Set send time to original setting
 				MYLOG("APP", "Battery protection deactivated");
 			}
-}
+		}
 		if (!g_is_helium)
 		{
 			if (low_batt_protection || (gnss_option == NO_GNSS_INIT))
@@ -338,6 +346,7 @@ void app_event_handler(void)
 	{
 		g_task_event_type &= N_ACC_TRIGGER;
 		MYLOG("APP", "ACC triggered");
+		read_acc();
 		clear_acc_int();
 
 		// Check time since last send
