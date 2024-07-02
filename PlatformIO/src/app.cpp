@@ -69,6 +69,15 @@ void setup_app(void)
 {
 	// Enable BLE
 	g_enable_ble = true;
+
+	// // For testing only, force LoRa P2P and set send interval to 120 seconds
+	// // Read LoRaWAN settings from flash
+	// api_read_credentials();
+	// // Change LoRaWAN settings
+	// g_lorawan_settings.send_repeat_time = 120000;					// Send repeat time in milliseconds: 2 * 60 * 1000 => 2 minutes
+	// g_lorawan_settings.lorawan_enable = false;
+	// // Save LoRaWAN settings
+	// api_set_credentials();
 }
 
 /**

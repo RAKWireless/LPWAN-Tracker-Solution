@@ -1,5 +1,6 @@
 import sys
 import struct
+import platform
 
 Import("env")
 
@@ -7,7 +8,8 @@ Import("env")
 def create_uf2(source, target, env):
     # source_hex = target[0].get_abspath()
     source_hex = target[0].get_string(False)
-    source_hex = '.\\'+source_hex
+    if platform.system() == "Windows":
+       source_hex = '.\\'+source_hex
     print("#########################################################")
     print("Create UF2 from "+source_hex)
     print("#########################################################")
