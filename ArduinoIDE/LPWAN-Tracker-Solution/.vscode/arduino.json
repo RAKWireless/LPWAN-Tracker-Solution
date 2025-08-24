@@ -1,5 +1,6 @@
 {
     "configuration": "softdevice=s140v6,debug=l0",
     "board": "rakwireless:nrf52:WisCoreRAK4631Board",
-    "sketch": "LPWAN-Tracker-Solution.ino"
+    "sketch": "LPWAN-Tracker-Solution.ino",
+	"output": "build"
 }

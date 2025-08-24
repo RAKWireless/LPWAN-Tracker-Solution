@@ -78,6 +78,9 @@ void setup_app(void)
 	// g_lorawan_settings.lorawan_enable = false;
 	// // Save LoRaWAN settings
 	// api_set_credentials();
+
+	// Set firmware version
+	snprintf(g_custom_fw_ver, 64, "LPWAN_Tracker_V%d.%d.%d", SW_VERSION_1, SW_VERSION_2, SW_VERSION_3);
 }
 
 /**
@@ -260,6 +263,7 @@ void app_event_handler(void)
 		if (!init_result)
 		{
 			AT_PRINTF("+EVT:HW_FAILURE\n");
+			init_result = true;
 		}
 
 		// If BLE is enabled, restart Advertising

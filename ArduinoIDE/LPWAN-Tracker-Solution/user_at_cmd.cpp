@@ -35,12 +35,12 @@ File gps_file(InternalFS);
 /** File to save battery check status */
 File batt_check(InternalFS);
 
-#define AT_PRINTF(...)                  \
-	Serial.printf(__VA_ARGS__);         \
-	if (g_ble_uart_is_connected)        \
-	{                                   \
-		g_ble_uart.printf(__VA_ARGS__); \
-	}
+// #define AT_PRINTF(...)                  \
+// 	Serial.printf(__VA_ARGS__);         \
+// 	if (g_ble_uart_is_connected)        \
+// 	{                                   \
+// 		g_ble_uart.printf(__VA_ARGS__); \
+// 	}
 
 /*****************************************
  * Query modules AT commands

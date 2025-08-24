@@ -283,6 +283,10 @@ bool poll_gnss(void)
 			{
 				// char gnss = Serial1.read();
 				// Serial.print(gnss);
+				// if (g_ble_uart_is_connected)
+				// {
+				// 	g_ble_uart.print(gnss);
+				// }
 				// if (my_rak1910_gnss.encode(gnss))
 				if (my_rak1910_gnss.encode(Serial1.read()))
 				{

@@ -38,7 +38,7 @@
 
 // Debug output set to 0 to disable app debug output
 #ifndef MY_DEBUG
-#define MY_DEBUG 1
+#define MY_DEBUG 0
 #endif
 
 #if MY_DEBUG > 0
@@ -75,7 +75,7 @@ void lora_data_handler(void);
 
 /** Accelerometer stuff */
 #include <SparkFunLIS3DH.h>
-#define INT1_PIN WB_IO3
+#define INT1_PIN WB_IO1 // Slot A or WB_IO3 // Slot C or WB_IO5 // Slot D or WB_IO3 // Slot C or
 bool init_acc(void);
 void clear_acc_int(void);
 void read_acc(void);
