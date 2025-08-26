@@ -74,49 +74,49 @@ bool init_gnss(void)
 			gnss_option = RAK12500_GNSS;
 		}
 
-		if (!i2c_gnss)
-		{
-			uint8_t retry = 0;
-			// Assume that the U-Blox GNSS is running at 9600 baud (the default) or at 38400 baud.
-			// Loop until we're in sync and then ensure it's at 38400 baud.
-			do
-			{
-				MYLOG("GNSS", "GNSS: trying 38400 baud");
-				Serial1.begin(38400);
-				while (!Serial1)
-					;
-				if (my_gnss.begin(Serial1) == true)
-				{
-					MYLOG("GNSS", "UBLOX found on Serial1 with 38400");
-					my_gnss.setUART1Output(COM_TYPE_UBX); // Set the UART port to output UBX only
-					gnss_found = true;
+		// if (!i2c_gnss)
+		// {
+		// 	uint8_t retry = 0;
+		// 	// Assume that the U-Blox GNSS is running at 9600 baud (the default) or at 38400 baud.
+		// 	// Loop until we're in sync and then ensure it's at 38400 baud.
+		// 	do
+		// 	{
+		// 		MYLOG("GNSS", "GNSS: trying 38400 baud");
+		// 		Serial1.begin(38400);
+		// 		while (!Serial1)
+		// 			;
+		// 		if (my_gnss.begin(Serial1) == true)
+		// 		{
+		// 			MYLOG("GNSS", "UBLOX found on Serial1 with 38400");
+		// 			my_gnss.setUART1Output(COM_TYPE_UBX); // Set the UART port to output UBX only
+		// 			gnss_found = true;
 
-					gnss_option = RAK12500_GNSS;
-					break;
-				}
-				delay(100);
-				MYLOG("GNSS", "GNSS: trying 9600 baud");
-				Serial1.begin(9600);
-				while (!Serial1)
-					;
-				if (my_gnss.begin(Serial1) == true)
-				{
-					MYLOG("GNSS", "GNSS: connected at 9600 baud, switching to 38400");
-					my_gnss.setSerialRate(38400);
-					delay(100);
-				}
-				else
-				{
-					my_gnss.factoryReset();
-					delay(2000); // Wait a bit before trying again to limit the Serial output
-				}
-				retry++;
-				if (retry == 3)
-				{
-					break;
-				}
-			} while (1);
-		}
+		// 			gnss_option = RAK12500_GNSS;
+		// 			break;
+		// 		}
+		// 		delay(100);
+		// 		MYLOG("GNSS", "GNSS: trying 9600 baud");
+		// 		Serial1.begin(9600);
+		// 		while (!Serial1)
+		// 			;
+		// 		if (my_gnss.begin(Serial1) == true)
+		// 		{
+		// 			MYLOG("GNSS", "GNSS: connected at 9600 baud, switching to 38400");
+		// 			my_gnss.setSerialRate(38400);
+		// 			delay(100);
+		// 		}
+		// 		else
+		// 		{
+		// 			my_gnss.factoryReset();
+		// 			delay(2000); // Wait a bit before trying again to limit the Serial output
+		// 		}
+		// 		retry++;
+		// 		if (retry == 3)
+		// 		{
+		// 			break;
+		// 		}
+		// 	} while (1);
+		// }
 
 		if (gnss_found)
 		{
@@ -129,11 +129,12 @@ bool init_gnss(void)
 		// No RAK12500 found, assume RAK1910 is plugged in
 		gnss_option = RAK1910_GNSS;
 		MYLOG("GNSS", "Initialize RAK1910");
-		Serial1.end();
+		// Serial1.end();
 		delay(500);
 		Serial1.begin(9600);
-		while (!Serial1)
-			;
+		// while (!Serial1)
+		// 	;
+		MYLOG("GNSS", "RAK1910 finished");
 		return true;
 	}
 	else
